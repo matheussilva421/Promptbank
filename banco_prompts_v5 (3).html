@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Banco de Prompts TCE/RN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+/* ══════════ TOKENS ══════════ */
+:root {
+  --bg0:#07090f; --bg1:#0c0f1c; --bg2:#111628; --bg3:#171d32; --bg4:#1d253d;
+  --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.12);
+  --blue:#14B2E4; --blue2:#0d8ab5; --blue-g:rgba(20,178,228,.15);
+  --amber:#F5A623; --red:#FF4D5E; --green:#34d399; --purple:#a78bfa;
+  --t1:rgba(255,255,255,.92); --t2:rgba(255,255,255,.65); --t3:rgba(255,255,255,.38);
+  --r1:6px; --r2:10px; --r3:16px; --r4:22px;
+  --mono:'Geist Mono',ui-monospace,monospace;
+  --sans:'DM Sans',ui-sans-serif,system-ui,sans-serif;
+  --display:'Syne','DM Sans',sans-serif;
+  --dock-w:64px; --panel-w:260px;
+  --sh1:0 2px 8px rgba(0,0,0,.4); --sh2:0 8px 28px rgba(0,0,0,.5); --sh3:0 20px 60px rgba(0,0,0,.6);
+}
+[data-theme="light"] {
+  --bg0:#f0f3fa; --bg1:#ffffff; --bg2:#f5f7fd; --bg3:#eaeff8; --bg4:#dde4f2;
+  --line:rgba(20,30,80,.08); --line2:rgba(20,30,80,.14);
+  --t1:rgba(12,20,55,.92); --t2:rgba(12,20,55,.60); --t3:rgba(12,20,55,.35);
+  --blue-g:rgba(20,178,228,.10);
+  --sh1:0 2px 8px rgba(0,0,0,.08); --sh2:0 8px 28px rgba(0,0,0,.10); --sh3:0 20px 60px rgba(0,0,0,.14);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:var(--sans);color:var(--t1);background:var(--bg0);font-size:14px;line-height:1.5;}
+button,input,textarea,select{font:inherit;color:inherit;background:none;border:none;outline:none;}
+button{cursor:pointer;}
+a{color:inherit;text-decoration:none;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:99px;}
+
+/* ══════════ APP SHELL ══════════ */
+.app{display:grid;grid-template-columns:var(--dock-w) var(--panel-w) 1fr;height:100vh;}
+
+/* ── DOCK ── */
+.dock{background:var(--bg1);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:14px 0 12px;gap:4px;z-index:10;}
+.dock-logo{width:38px;height:38px;border-radius:11px;background:linear-gradient(145deg,#2D3489,#14B2E4);display:grid;place-items:center;margin-bottom:12px;flex-shrink:0;position:relative;overflow:hidden;box-shadow:0 6px 20px rgba(20,178,228,.3);}
+.dock-logo::before{content:"";position:absolute;inset:-80%;background:conic-gradient(from 140deg,transparent 0%,rgba(255,255,255,.3) 50%,transparent 100%);animation:spin 7s linear infinite;}
+.dock-logo span{position:relative;font-family:var(--mono);font-size:11px;font-weight:600;color:#fff;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.dock-sep{width:28px;height:1px;background:var(--line);margin:6px 0;flex-shrink:0;}
+.dock-item{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;cursor:pointer;position:relative;font-size:20px;transition:background .15s;flex-shrink:0;border:1px solid transparent;user-select:none;}
+.dock-item:hover{background:var(--bg3);}
+.dock-item.active{background:var(--blue-g);border-color:rgba(20,178,228,.3);box-shadow:0 0 0 1px rgba(20,178,228,.15) inset;}
+.dock-item .tooltip{position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);background:var(--bg4);border:1px solid var(--line2);color:var(--t1);font-size:12px;padding:5px 10px;border-radius:var(--r2);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:100;box-shadow:var(--sh2);}
+.dock-item:hover .tooltip{opacity:1;}
+.dock-bottom{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.dock-icon-btn{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:15px;color:var(--t3);cursor:pointer;transition:color .15s,background .15s;border:1px solid transparent;user-select:none;position:relative;}
+.dock-icon-btn:hover{color:var(--t1);background:var(--bg3);}
+.dock-icon-btn .tooltip{position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);background:var(--bg4);border:1px solid var(--line2);color:var(--t1);font-size:12px;padding:5px 10px;border-radius:var(--r2);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:100;box-shadow:var(--sh2);}
+.dock-icon-btn:hover .tooltip{opacity:1;}
+#btnDriveSync[data-state="idle"]{color:var(--t3);}
+#btnDriveSync[data-state="syncing"]{color:var(--amber);animation:pulse .8s ease-in-out infinite alternate;}
+#btnDriveSync[data-state="ok"]{color:var(--green);}
+#btnDriveSync[data-state="error"]{color:var(--red);}
+#btnDriveSync[data-state="off"]{color:var(--t3);opacity:.5;}
+@keyframes pulse{from{opacity:.5;}to{opacity:1;}}
+.drive-status-bar{font-size:10px;color:var(--t3);text-align:center;font-family:var(--mono);min-height:14px;}
+
+/* ── SIDE PANEL ── */
+.side-panel{background:var(--bg1);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;}
+.panel-head{padding:16px 14px 12px;border-bottom:1px solid var(--line);flex-shrink:0;}
+.panel-cat-title{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.panel-cat-icon{font-size:18px;}
+.panel-cat-name{font-family:var(--display);font-size:15px;font-weight:800;}
+.panel-cat-count{font-family:var(--mono);font-size:11px;color:var(--blue);background:rgba(20,178,228,.12);padding:2px 7px;border-radius:99px;margin-left:auto;}
+.panel-search{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:var(--r2);border:1px solid var(--line2);background:var(--bg2);}
+.panel-search:focus-within{border-color:rgba(20,178,228,.5);}
+.panel-search input{width:100%;font-size:13px;}
+.panel-search input::placeholder{color:var(--t3);}
+.panel-body{flex:1;overflow-y:auto;padding:8px 10px 12px;display:flex;flex-direction:column;gap:4px;}
+.panel-footer{padding:10px 12px;border-top:1px solid var(--line);display:flex;gap:8px;flex-shrink:0;}
+
+/* Subcategory nav */
+.subcat-nav{display:flex;flex-direction:column;gap:3px;}
+.subcat-item{padding:8px 10px;border-radius:var(--r2);border:1px solid transparent;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .12s,border-color .12s;font-size:13px;user-select:none;}
+.subcat-item:hover{background:var(--bg3);}
+.subcat-item.active{background:var(--blue-g);border-color:rgba(20,178,228,.35);}
+.subcat-item-name{font-weight:500;}
+.subcat-count{font-family:var(--mono);font-size:11px;color:var(--t3);}
+.subcat-item.active .subcat-count{color:var(--blue);}
+
+/* Filter section */
+.filter-section{margin-top:8px;}
+.filter-label{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;padding:0 2px;}
+.filter-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
+.chip{padding:3px 9px;border-radius:99px;font-size:11.5px;cursor:pointer;border:1px solid var(--line2);color:var(--t2);transition:all .12s;user-select:none;}
+.chip:hover{border-color:var(--blue);color:var(--blue);}
+.chip.active{background:var(--blue);border-color:var(--blue);color:#fff;}
+
+/* ── MAIN ── */
+.main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg0);}
+.main-header{padding:14px 20px 0;flex-shrink:0;}
+.search-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.search-input-wrap{flex:1;display:flex;align-items:center;gap:8px;padding:9px 13px;border-radius:var(--r3);border:1px solid var(--line2);background:var(--bg1);}
+.search-input-wrap:focus-within{border-color:rgba(20,178,228,.5);}
+.search-input-wrap input{flex:1;font-size:13px;}
+.search-input-wrap input::placeholder{color:var(--t3);}
+.active-filter-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:0;}
+.active-filter-chip{display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;font-size:12px;background:var(--blue-g);border:1px solid rgba(20,178,228,.3);color:var(--blue);}
+.active-filter-chip button{background:none;border:none;color:var(--blue);cursor:pointer;font-size:14px;line-height:1;padding:0;}
+
+/* ── PROMPT GRID ── */
+.prompt-grid-wrap{flex:1;overflow-y:auto;padding:8px 20px 20px;}
+.prompt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;align-content:start;}
+.prompt-card{background:var(--bg1);border:1px solid var(--line);border-radius:var(--r3);padding:14px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .1s;}
+.prompt-card:hover{border-color:var(--line2);box-shadow:var(--sh1);transform:translateY(-1px);}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.card-title{font-weight:600;font-size:13px;line-height:1.4;flex:1;}
+.card-ai{font-size:10px;font-family:var(--mono);color:var(--t3);background:var(--bg3);padding:2px 6px;border-radius:4px;flex-shrink:0;}
+.card-badges{display:flex;flex-wrap:wrap;gap:4px;}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:99px;font-size:11px;font-weight:500;border:1px solid transparent;}
+.badge-homologado{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.3);color:#34d399;}
+.badge-teste{background:rgba(245,166,35,.12);border-color:rgba(245,166,35,.3);color:var(--amber);}
+.badge-variante{background:rgba(167,139,250,.12);border-color:rgba(167,139,250,.3);color:var(--purple);}
+.badge-arquivado{background:rgba(255,255,255,.05);border-color:var(--line2);color:var(--t3);}
+.badge-formato{background:var(--bg3);border-color:var(--line2);color:var(--t2);}
+.card-when{font-size:12px;color:var(--t2);line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.card-tags{display:flex;flex-wrap:wrap;gap:4px;}
+.tag{font-size:11px;color:var(--t3);background:var(--bg2);border:1px solid var(--line);padding:1px 7px;border-radius:99px;}
+.card-actions{display:flex;gap:6px;margin-top:2px;}
+.card-btn{padding:5px 10px;border-radius:var(--r1);font-size:12px;border:1px solid var(--line2);color:var(--t2);transition:all .12s;}
+.card-btn:hover{background:var(--bg3);color:var(--t1);}
+.card-btn.primary{background:var(--blue-g);border-color:rgba(20,178,228,.4);color:var(--blue);}
+.card-btn.primary:hover{background:rgba(20,178,228,.25);}
+
+/* empty states */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;color:var(--t3);}
+.empty-icon{font-size:40px;margin-bottom:12px;}
+.empty-title{font-size:16px;font-weight:600;color:var(--t2);margin-bottom:6px;}
+.empty-sub{font-size:13px;}
+
+/* ── DRAWER (prompt detail) ── */
+.drawer-overlay{display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.4);backdrop-filter:blur(2px);}
+.drawer-overlay.open{display:flex;justify-content:flex-end;}
+.drawer{width:min(640px,90vw);height:100%;background:var(--bg1);border-left:1px solid var(--line2);display:flex;flex-direction:column;box-shadow:var(--sh3);overflow:hidden;}
+.drawer-head{padding:18px 20px 14px;border-bottom:1px solid var(--line);flex-shrink:0;}
+.drawer-head-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+.drawer-title{font-family:var(--display);font-size:16px;font-weight:800;line-height:1.3;flex:1;}
+.drawer-close{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--t3);font-size:18px;flex-shrink:0;}
+.drawer-close:hover{background:var(--bg3);color:var(--t1);}
+.drawer-meta{display:flex;flex-wrap:wrap;gap:5px;}
+.drawer-body{flex:1;overflow-y:auto;padding:20px;}
+.drawer-text{font-size:13px;line-height:1.75;white-space:pre-wrap;font-family:var(--mono);background:var(--bg2);border:1px solid var(--line);border-radius:var(--r2);padding:14px;color:var(--t1);}
+.drawer-section-label{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin:16px 0 6px;}
+.drawer-info-row{display:flex;align-items:baseline;gap:10px;font-size:13px;padding:5px 0;border-bottom:1px solid var(--line);}
+.drawer-info-label{color:var(--t3);width:120px;flex-shrink:0;font-size:12px;}
+.drawer-info-val{color:var(--t2);}
+.drawer-footer{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px;flex-shrink:0;}
+
+/* ── MODAL (prompt editor) ── */
+.modal-overlay{display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r4);width:min(700px,95vw);max-height:90vh;display:flex;flex-direction:column;box-shadow:var(--sh3);}
+.modal-head{padding:20px 22px 14px;border-bottom:1px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
+.modal-head h2{font-family:var(--display);font-size:16px;font-weight:800;}
+.modal-body{flex:1;overflow-y:auto;padding:20px 22px;}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px;}
+.field input[type=text],.field textarea,.field select{width:100%;padding:9px 12px;border-radius:var(--r2);border:1px solid var(--line2);background:var(--bg3);color:var(--t1);font-size:13px;transition:border-color .15s;}
+.field input[type=text]:focus,.field textarea:focus,.field select:focus{border-color:rgba(20,178,228,.5);outline:none;}
+.field textarea{resize:vertical;min-height:160px;font-family:var(--mono);line-height:1.65;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.field select{appearance:auto;}
+.hint{font-size:11px;color:var(--t3);margin-top:4px;}
+
+/* ── DRIVE MODAL ── */
+.drive-modal{background:var(--bg2);border:1px solid var(--line2);border-radius:var(--r4);padding:28px;width:min(500px,90vw);box-shadow:var(--sh3);}
+.drive-modal h2{font-family:var(--display);font-size:17px;font-weight:800;margin-bottom:8px;}
+.drive-modal p{font-size:13px;color:var(--t2);margin-bottom:14px;line-height:1.6;}
+.drive-modal p a{color:var(--blue);text-decoration:underline;}
+.drive-modal label{font-size:12px;font-weight:600;color:var(--t2);display:block;margin-bottom:6px;}
+.drive-modal input[type=text]{width:100%;padding:9px 12px;border-radius:var(--r2);border:1px solid var(--line2);background:var(--bg3);color:var(--t1);font-size:13px;font-family:var(--mono);}
+.drive-modal input[type=text]:focus{border-color:rgba(20,178,228,.5);outline:none;}
+.drive-modal-actions{display:flex;gap:8px;margin-top:18px;justify-content:flex-end;}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r2);font-size:13px;font-weight:500;border:1px solid transparent;transition:all .15s;cursor:pointer;}
+.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue);}
+.btn.primary:hover{background:var(--blue2);}
+.btn.ghost{border-color:var(--line2);color:var(--t2);}
+.btn.ghost:hover{background:var(--bg3);color:var(--t1);}
+.btn.danger{border-color:rgba(255,77,94,.4);color:var(--red);}
+.btn.danger:hover{background:rgba(255,77,94,.1);}
+.btn.sm{padding:5px 11px;font-size:12px;}
+.btn.icon{padding:6px;border-radius:var(--r1);}
+
+/* ── TOASTS ── */
+#toasts{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:999;display:flex;flex-direction:column;gap:8px;align-items:center;}
+.toast-item{background:var(--bg4);border:1px solid var(--line2);color:var(--t1);padding:9px 18px;border-radius:var(--r3);font-size:13px;box-shadow:var(--sh2);transition:opacity .3s;white-space:nowrap;}
+  </style>
+</head>
+<body>
+
+<div id="toasts"></div>
+
+<div class="app">
+  <!-- ══ DOCK ══ -->
+  <nav class="dock">
+    <div class="dock-logo"><span>BP</span></div>
+    <div id="dockCats"></div>
+    <div class="dock-bottom">
+      <div class="dock-sep"></div>
+      <div class="dock-icon-btn" id="btnDriveSync" data-state="off">
+        ☁️
+        <div class="tooltip" id="driveSyncTooltip">Conectar Google Drive</div>
+      </div>
+      <div class="drive-status-bar" id="driveStatusBar"></div>
+      <div class="dock-icon-btn" id="btnTheme">
+        🌗<div class="tooltip">Alternar tema</div>
+      </div>
+      <div class="dock-icon-btn" id="btnDataMenu" style="position:relative;">
+        ···<div class="tooltip">Dados</div>
+        <div id="dataMenu" style="display:none;position:fixed;left:calc(var(--dock-w) + 6px);bottom:16px;background:var(--bg4);border:1px solid var(--line2);border-radius:var(--r3);box-shadow:var(--sh3);padding:6px;z-index:200;min-width:170px;flex-direction:column;gap:2px;">
+          <button class="data-menu-item" id="btnExport" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border-radius:var(--r1);font-size:13px;color:var(--t2);transition:background .12s;">⬇️ Exportar JSON</button>
+          <button class="data-menu-item" id="btnImport" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border-radius:var(--r1);font-size:13px;color:var(--t2);transition:background .12s;">⬆️ Importar JSON</button>
+        </div>
+      </div>
+      <input id="importFile" type="file" accept="application/json" style="display:none;">
+    </div>
+  </nav>
+
+  <!-- ══ SIDE PANEL ══ -->
+  <aside class="side-panel">
+    <div class="panel-head">
+      <div class="panel-cat-title">
+        <span class="panel-cat-icon" id="panelCatIcon">📌</span>
+        <span class="panel-cat-name" id="panelCatName">Fixadas</span>
+        <span class="panel-cat-count" id="panelCatCount">0</span>
+      </div>
+      <div class="panel-search">
+        <span style="color:var(--t3);font-size:13px;">🔎</span>
+        <input id="sideSearch" placeholder="Buscar..." autocomplete="off">
+      </div>
+    </div>
+    <div class="panel-body" id="panelBody"></div>
+    <div class="panel-footer" id="panelFooter">
+      <button class="btn primary" id="btnNewPrompt" style="flex:1;">+ Novo Prompt</button>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN ══ -->
+  <main class="main">
+    <div class="main-header">
+      <div class="search-row">
+        <div class="search-input-wrap">
+          <span style="color:var(--t3);">🔍</span>
+          <input id="globalSearch" placeholder="Buscar em todos os prompts...">
+        </div>
+        <button class="btn ghost sm" id="btnClearFilters" style="display:none;">✕ Limpar</button>
+      </div>
+      <div class="active-filter-bar" id="activeFilterBar"></div>
+    </div>
+    <div class="prompt-grid-wrap">
+      <div class="prompt-grid" id="promptGrid"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ══ PROMPT DETAIL DRAWER ══ -->
+<div class="drawer-overlay" id="drawerOverlay">
+  <div class="drawer" id="promptDrawer">
+    <div class="drawer-head">
+      <div class="drawer-head-top">
+        <div class="drawer-title" id="drawerTitle"></div>
+        <button class="drawer-close" id="btnCloseDrawer">✕</button>
+      </div>
+      <div class="drawer-meta" id="drawerMeta"></div>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+    <div class="drawer-footer" id="drawerFooter"></div>
+  </div>
+</div>
+
+<!-- ══ PROMPT EDITOR MODAL ══ -->
+<div class="modal-overlay" id="editorOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="editorTitle">Novo Prompt</h2>
+      <button class="btn ghost icon" id="btnCloseEditor">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Título *</label>
+        <input type="text" id="e_title" placeholder="Título do prompt">
+      </div>
+      <div class="field">
+        <label>Texto do Prompt *</label>
+        <textarea id="e_text" placeholder="Cole ou escreva o prompt aqui..."></textarea>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Categoria</label>
+          <select id="e_categoria"></select>
+        </div>
+        <div class="field">
+          <label>Subcategoria</label>
+          <select id="e_subcategoria">
+            <option value="">— Nenhuma —</option>
+            <option value="eixo1">Eixo 1 – Qualidade de Segurado</option>
+            <option value="eixo3">Eixo 3 – Preenchimento dos Requisitos</option>
+            <option value="eixo4">Eixo 4 – Composição e Cálculo</option>
+            <option value="eixo5">Eixo 5 – Implantação</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Formato</label>
+          <select id="e_formato">
+            <option value="">— Sem formato —</option>
+            <option value="compacto">⚡ Compacto</option>
+            <option value="mestre">🧠 Mestre</option>
+            <option value="paragrafo">✍️ Parágrafo</option>
+            <option value="pente-fino">🔬 Pente-fino</option>
+            <option value="redacao-final">📄 Redação Final</option>
+            <option value="checklist">☑️ Checklist</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <select id="e_status">
+            <option value="teste">🧪 Em teste</option>
+            <option value="homologado">✅ Homologado</option>
+            <option value="variante">🔁 Variante</option>
+            <option value="arquivado">🗃️ Arquivado</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>IA</label>
+          <select id="e_ai">
+            <option value="">— Todos —</option>
+            <option value="gpt">GPT</option>
+            <option value="gemini">Gemini</option>
+            <option value="claude">Claude</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Tags <span style="font-weight:400;color:var(--t3)">(separadas por vírgula)</span></label>
+        <input type="text" id="e_tags" placeholder="Eixo1, Compacto, Triagem...">
+      </div>
+      <div class="field">
+        <label>Quando usar</label>
+        <input type="text" id="e_quando" placeholder="Ex.: Primeira leitura do processo, diagnóstico rápido">
+      </div>
+      <div class="field">
+        <label>Não usar quando</label>
+        <input type="text" id="e_nao_quando" placeholder="Ex.: Processo já analisado, segunda instância">
+      </div>
+      <div class="field">
+        <label>Saída esperada</label>
+        <input type="text" id="e_saida" placeholder="Ex.: 3 parágrafos técnicos, checklist de itens">
+      </div>
+      <div class="field">
+        <label>Nota interna</label>
+        <input type="text" id="e_note" placeholder="Notas, observações de uso...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn danger" id="btnDeletePrompt" style="display:none;margin-right:auto;">🗑️ Excluir</button>
+      <button class="btn ghost" id="btnCancelEditor">Cancelar</button>
+      <button class="btn primary" id="btnSavePrompt">Salvar Prompt</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DRIVE SETUP MODAL ══ -->
+<div class="modal-overlay" id="driveSetupModal">
+  <div class="drive-modal">
+    <h2>☁️ Sincronizar com Google Drive</h2>
+    <p>Seus prompts serão salvos em <code style="font-family:var(--mono);font-size:12px;background:var(--bg3);padding:1px 5px;border-radius:4px;">banco_prompts.json</code> no seu Drive.<br><br>
+    Precisa de um <strong>Client ID</strong> do Google Cloud:<br>
+    1. <a href="https://console.cloud.google.com/" target="_blank">console.cloud.google.com</a> → Crie um projeto<br>
+    2. APIs &amp; Services → Library → ative <strong>Google Drive API</strong><br>
+    3. Credentials → Create → <strong>OAuth 2.0 Client ID</strong> → Web Application<br>
+    4. Authorized JS origins → adicione sua URL (ex: <code style="font-family:var(--mono);font-size:11px">https://seusite.netlify.app</code>)<br>
+    5. OAuth consent screen → Test users → adicione seu e-mail<br>
+    6. Cole o Client ID abaixo.
+    </p>
+    <label for="driveClientIdInput">Client ID</label>
+    <input type="text" id="driveClientIdInput" placeholder="xxxxxx.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+    <div id="driveSetupError" style="color:var(--red);font-size:12px;margin-top:8px;min-height:18px;"></div>
+    <div class="drive-modal-actions">
+      <button class="btn ghost" id="btnDriveSetupClose">Cancelar</button>
+      <button class="btn danger" id="btnDriveSetupDisconnect" style="display:none;">Desconectar</button>
+      <button class="btn primary" id="btnDriveSetupSave">Conectar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EMBEDDED DATA (kept empty for fresh start) ══ -->
+<script id="embeddedData" type="application/json">{}</script>
+
+<script>
+/* ═══════════════════════════════════════════
+   BANCO DE PROMPTS v5 — TCE/RN
+═══════════════════════════════════════════ */
+
+// ── Config ──
+const LS_KEY_V3 = "bancoPrompts_v3";
+const LS_KEY_V2 = "bancoPrompts_v2";
+
+const CATS = [
+  { id:"todos",       name:"Todos os Prompts",   icon:"🗂️", desc:"Todos os prompts em um lugar" },
+  { id:"analise",     name:"Análise por Eixo",   icon:"⚡", desc:"Análise detalhada por eixo" },
+  { id:"geral",       name:"Análise",             icon:"🏛️", desc:"Análise geral de processos" },
+  { id:"informacao",  name:"Informação Técnica",  icon:"📝", desc:"Templates e prompts para redação de IT" },
+  { id:"especiais",   name:"Casos Especiais",     icon:"🚨", desc:"Cenários específicos e exceções" },
+  { id:"arquivados",  name:"Arquivados",          icon:"🗃️", desc:"Prompts antigos ou substituídos" },
+];
+
+const SUBCATS = [
+  { id:"eixo1", name:"Eixo 1", desc:"Qualidade de Segurado do RPPS" },
+  { id:"eixo3", name:"Eixo 3", desc:"Requisitos / Tempo / Compensação" },
+  { id:"eixo4", name:"Eixo 4", desc:"Composição e Cálculo do Benefício" },
+  { id:"eixo5", name:"Eixo 5", desc:"Implantação do Benefício" },
+];
+
+const FORMATO_LABELS = {
+  "compacto":"⚡ Compacto","mestre":"🧠 Mestre","paragrafo":"✍️ Parágrafo",
+  "pente-fino":"🔬 Pente-fino","redacao-final":"📄 Redação Final","checklist":"☑️ Checklist"
+};
+const STATUS_LABELS = {
+  "homologado":"✅ Homologado","teste":"🧪 Em teste","variante":"🔁 Variante","arquivado":"🗃️ Arquivado"
+};
+
+// ── Utils ──
+const $ = (s,r=document) => r.querySelector(s);
+const uid = () => Math.random().toString(16).slice(2)+"-"+Date.now().toString(16);
+const nowISO = () => new Date().toISOString();
+const esc = s => String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+const parseTags = s => (s||"").split(",").map(t=>t.trim()).filter(Boolean);
+const fmt = iso => { try{ return new Date(iso).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}); }catch(e){ return "—"; }};
+const norm = t => { if(!t) return ""; return t.replace(/\r\n/g,"\n").replace(/\r/g,"\n").trim(); };
+
+function toast(msg, dur=2600){
+  const el=document.createElement("div"); el.className="toast-item"; el.textContent=msg;
+  $("#toasts").appendChild(el);
+  setTimeout(()=>el.style.opacity="0", dur-300);
+  setTimeout(()=>el.remove(), dur);
+}
+
+// ── Migration: v2 → v3 ──
+function inferMeta(matrixName="", promptTitle="") {
+  const text = (matrixName+" "+promptTitle).toLowerCase();
+  let categoria = "analise", subcategoria = "";
+  
+  if (/diligên|pós.diligên|pos.diligen|reanáli|pós.juntada|pos.juntada/i.test(text))
+    { categoria="diligencias"; }
+  else if (/triagem|compacto|rápida|contextualiz|visão geral|leitura/i.test(text))
+    { categoria="triagem"; }
+  else if (/eixo.?1|qualidade de segurado/i.test(text))
+    { categoria="analise"; subcategoria="eixo1"; }
+  else if (/eixo.?3|requisito|tempo de contribu|compensaç|aposentadoria vol|compulsória|invalidez/i.test(text))
+    { categoria="analise"; subcategoria="eixo3"; }
+  else if (/eixo.?4|composiç|cálculo|integralidade|média.*10\.887|10\.887|vantagem transit|incorporaç/i.test(text))
+    { categoria="analise"; subcategoria="eixo4"; }
+  else if (/eixo.?5|implantaç/i.test(text))
+    { categoria="analise"; subcategoria="eixo5"; }
+
+  let formato = "";
+  if (/compacto/i.test(text)) formato="compacto";
+  else if (/mestre/i.test(text)) formato="mestre";
+  else if (/pente.fino/i.test(text)) formato="pente-fino";
+  else if (/parágrafo|3 parágrafos/i.test(text)) formato="paragrafo";
+  else if (/redaç/i.test(text)) formato="redacao-final";
+  else if (/checklist/i.test(text)) formato="checklist";
+
+  return { categoria, subcategoria, formato };
+}
+
+function migrateV2toV3(v2) {
+  const prompts = [];
+  const seen = new Set();
+  for (const cat of (v2.categories||[])) {
+    const ais = Array.isArray(cat.ais)&&cat.ais.length ? cat.ais : ["gpt"];
+    if (cat.type==="work") {
+      for (const mx of (cat.matrices||[])) {
+        for (const ai of ais) {
+          for (const p of (mx.prompts?.[ai]||[])) {
+            if (!seen.has(p.id)) {
+              seen.add(p.id);
+              const meta = inferMeta(mx.name, p.title);
+              prompts.push({
+                id: p.id||uid(),
+                title: p.title||"Sem título",
+                text: p.text||"",
+                tags: Array.isArray(p.tags)?p.tags:[],
+                note: p.note||"",
+                ai: ai,
+                categoria: meta.categoria,
+                subcategoria: meta.subcategoria,
+                formato: meta.formato,
+                status: "teste",
+                quandoUsar: "",
+                naoUsarQuando: "",
+                saidaEsperada: "",
+                createdAt: p.updatedAt||nowISO(),
+                updatedAt: p.updatedAt||nowISO(),
+              });
+            }
+          }
+        }
+      }
+    } else {
+      for (const ai of ais) {
+        for (const p of (cat.prompts?.[ai]||[])) {
+          if (!seen.has(p.id)) {
+            seen.add(p.id);
+            const meta = inferMeta(cat.name, p.title);
+            prompts.push({
+              id: p.id||uid(),
+              title: p.title||"Sem título",
+              text: p.text||"",
+              tags: Array.isArray(p.tags)?p.tags:[],
+              note: p.note||"",
+              ai: ai,
+              categoria: meta.categoria,
+              subcategoria: meta.subcategoria,
+              formato: meta.formato,
+              status: "teste",
+              quandoUsar: "",
+              naoUsarQuando: "",
+              saidaEsperada: "",
+              createdAt: p.updatedAt||nowISO(),
+              updatedAt: p.updatedAt||nowISO(),
+            });
+          }
+        }
+      }
+    }
+  }
+  return { version:3, createdAt:v2.createdAt||nowISO(), updatedAt:nowISO(), prompts };
+}
+
+function defaultData() {
+  return { version:3, createdAt:nowISO(), updatedAt:nowISO(), prompts:[] };
+}
+
+function load() {
+  // Try v3
+  try {
+    const r=localStorage.getItem(LS_KEY_V3);
+    if(r){ const d=JSON.parse(r); if(d?.version===3&&Array.isArray(d.prompts)) return d; }
+  } catch(e){}
+  // Try v2 → migrate
+  try {
+    const r=localStorage.getItem(LS_KEY_V2);
+    if(r){ const d=JSON.parse(r); if(d?.version===2&&Array.isArray(d.categories)) { toast("Dados migrados para v5 ✅"); return migrateV2toV3(d); } }
+  } catch(e){}
+  return defaultData();
+}
+
+function save(d) {
+  d.updatedAt=nowISO();
+  localStorage.setItem(LS_KEY_V3,JSON.stringify(d,null,2));
+}
+
+let data = load();
+try { save(data); } catch(e){}
+
+// ── State ──
+let S = {
+  cat: "fixadas",
+  subcat: "",         // for analise
+  filterFormato: "",
+  filterStatus: "",
+  filterTags: [],
+  search: "",
+  sideSearch: "",
+  openPromptId: null,
+  editingId: null,
+};
+
+// ── Theme ──
+const getTheme = () => localStorage.getItem("bpTheme")==="light"?"light":"dark";
+const setTheme = t => { localStorage.setItem("bpTheme",t); document.documentElement.setAttribute("data-theme",t); };
+document.documentElement.setAttribute("data-theme", getTheme());
+
+// ── Selectors ──
+function allPrompts() { return data.prompts||[]; }
+function promptsForCat(cat) {
+  if(cat==="todos") return allPrompts();
+  return allPrompts().filter(p => {
+    if(cat==="analise") return p.categoria==="analise";
+    return p.categoria===cat;
+  });
+}
+function filteredPrompts() {
+  let ps = promptsForCat(S.cat);
+  if(S.cat==="analise"&&S.subcat) ps=ps.filter(p=>p.subcategoria===S.subcat);
+  const q=(S.search||S.sideSearch).trim().toLowerCase();
+  if(q) ps=ps.filter(p=>[p.title,p.text,...(p.tags||[]),p.quandoUsar,p.nota].filter(Boolean).join(" ").toLowerCase().includes(q));
+  if(S.filterFormato) ps=ps.filter(p=>p.formato===S.filterFormato);
+  if(S.filterStatus) ps=ps.filter(p=>p.status===S.filterStatus);
+  if(S.filterTags.length) ps=ps.filter(p=>S.filterTags.every(ft=>(p.tags||[]).map(t=>t.toLowerCase()).includes(ft.toLowerCase())));
+  return ps;
+}
+function hasActiveFilters() {
+  return S.search||S.sideSearch||S.filterFormato||S.filterStatus||S.filterTags.length;
+}
+
+// ── Render ──
+function render() { renderDock(); renderSidePanel(); renderMain(); }
+
+function renderDock() {
+  const el=$("#dockCats"); el.innerHTML="";
+  CATS.forEach(cat=>{
+    const d=document.createElement("div");
+    d.className="dock-item"+(S.cat===cat.id?" active":"");
+    const count=promptsForCat(cat.id).length;
+    d.innerHTML=`${cat.icon}<div class="tooltip">${esc(cat.name)} (${count})</div>`;
+    d.addEventListener("click",()=>{
+      S.cat=cat.id; S.subcat=""; S.sideSearch=""; S.search="";
+      S.filterFormato=""; S.filterStatus=""; S.filterTags=[];
+      $("#sideSearch").value=""; $("#globalSearch").value="";
+      render();
+    });
+    el.appendChild(d);
+  });
+}
+
+function renderSidePanel() {
+  const cat=CATS.find(c=>c.id===S.cat)||CATS[0];
+  $("#panelCatIcon").textContent=cat.icon;
+  $("#panelCatName").textContent=cat.name;
+  const total=promptsForCat(S.cat).length;
+  $("#panelCatCount").textContent=total;
+
+  const body=$("#panelBody");
+  body.innerHTML="";
+
+  // Subcategory nav for analise
+  if(S.cat==="analise") {
+    const nav=document.createElement("div"); nav.className="subcat-nav";
+    // "All" option
+    const allItem=document.createElement("div");
+    allItem.className="subcat-item"+(S.subcat===""?" active":"");
+    const allCount=promptsForCat("analise").length;
+    allItem.innerHTML=`<span class="subcat-item-name">🏛️ Todos os Eixos</span><span class="subcat-count">${allCount}</span>`;
+    allItem.addEventListener("click",()=>{ S.subcat=""; renderSidePanel(); renderMain(); });
+    nav.appendChild(allItem);
+    
+    SUBCATS.forEach(sc=>{
+      const count=allPrompts().filter(p=>p.categoria==="analise"&&p.subcategoria===sc.id).length;
+      const item=document.createElement("div");
+      item.className="subcat-item"+(S.subcat===sc.id?" active":"");
+      item.innerHTML=`<span class="subcat-item-name">${esc(sc.name)}</span><span class="subcat-count">${count}</span>`;
+      item.addEventListener("click",()=>{ S.subcat=sc.id; renderSidePanel(); renderMain(); });
+      nav.appendChild(item);
+    });
+    body.appendChild(nav);
+    
+    const sep=document.createElement("div"); sep.style.cssText="height:1px;background:var(--line);margin:10px 0;";
+    body.appendChild(sep);
+  }
+
+  // Formato filter
+  const formatosUsed=[...new Set(promptsForCat(S.cat).map(p=>p.formato).filter(Boolean))];
+  if(formatosUsed.length) {
+    const fl=document.createElement("div"); fl.className="filter-section";
+    fl.innerHTML=`<div class="filter-label">Formato</div><div class="filter-chips" id="formatoChips"></div>`;
+    body.appendChild(fl);
+    const chips=fl.querySelector("#formatoChips");
+    formatosUsed.forEach(f=>{
+      const c=document.createElement("span");
+      c.className="chip"+(S.filterFormato===f?" active":"");
+      c.textContent=FORMATO_LABELS[f]||f;
+      c.addEventListener("click",()=>{ S.filterFormato=S.filterFormato===f?"":f; renderSidePanel(); renderMain(); });
+      chips.appendChild(c);
+    });
+  }
+
+  // Status filter
+  const fl2=document.createElement("div"); fl2.className="filter-section";
+  fl2.innerHTML=`<div class="filter-label">Status</div><div class="filter-chips" id="statusChips"></div>`;
+  body.appendChild(fl2);
+  const statusUsed=[...new Set(promptsForCat(S.cat).map(p=>p.status||"teste").filter(Boolean))];
+  const chips2=fl2.querySelector("#statusChips");
+  statusUsed.forEach(st=>{
+    const c=document.createElement("span");
+    c.className="chip"+(S.filterStatus===st?" active":"");
+    c.textContent=STATUS_LABELS[st]||st;
+    c.addEventListener("click",()=>{ S.filterStatus=S.filterStatus===st?"":st; renderSidePanel(); renderMain(); });
+    chips2.appendChild(c);
+  });
+
+  // AI filter
+  const aisUsed=[...new Set(promptsForCat(S.cat).map(p=>p.ai).filter(Boolean))];
+  if(aisUsed.length>1){
+    const fl3=document.createElement("div"); fl3.className="filter-section";
+    fl3.innerHTML=`<div class="filter-label">IA</div><div class="filter-chips" id="aiChips"></div>`;
+    body.appendChild(fl3);
+    const chips3=fl3.querySelector("#aiChips");
+    aisUsed.forEach(ai=>{
+      const c=document.createElement("span");
+      c.className="chip"+(S.filterTags.includes(ai)?" active":"");
+      c.textContent=ai.charAt(0).toUpperCase()+ai.slice(1);
+      c.addEventListener("click",()=>{
+        S.filterTags=S.filterTags.includes(ai)?S.filterTags.filter(t=>t!==ai):[...S.filterTags,ai];
+        renderSidePanel(); renderMain();
+      });
+      chips3.appendChild(c);
+    });
+  }
+
+  // Popular tags
+  const tagCounts={};
+  promptsForCat(S.cat).forEach(p=>(p.tags||[]).forEach(t=>{ tagCounts[t]=(tagCounts[t]||0)+1; }));
+  const topTags=Object.entries(tagCounts).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([t])=>t);
+  if(topTags.length){
+    const fl4=document.createElement("div"); fl4.className="filter-section";
+    fl4.innerHTML=`<div class="filter-label">Tags</div><div class="filter-chips" id="tagChips"></div>`;
+    body.appendChild(fl4);
+    const chips4=fl4.querySelector("#tagChips");
+    topTags.forEach(tag=>{
+      const c=document.createElement("span");
+      c.className="chip"+(S.filterTags.includes(tag)?" active":"");
+      c.textContent="#"+tag;
+      c.addEventListener("click",()=>{
+        S.filterTags=S.filterTags.includes(tag)?S.filterTags.filter(t=>t!==tag):[...S.filterTags,tag];
+        renderSidePanel(); renderMain();
+      });
+      chips4.appendChild(c);
+    });
+  }
+}
+
+function renderMain() {
+  // Active filter bar
+  const bar=$("#activeFilterBar"); bar.innerHTML="";
+  const addChip=(label,onRemove)=>{
+    const c=document.createElement("div"); c.className="active-filter-chip";
+    c.innerHTML=`${esc(label)}<button title="Remover">×</button>`;
+    c.querySelector("button").addEventListener("click",onRemove);
+    bar.appendChild(c);
+  };
+  if(S.search) addChip(`"${S.search}"`,()=>{ S.search=""; $("#globalSearch").value=""; renderMain(); });
+  if(S.filterFormato) addChip(FORMATO_LABELS[S.filterFormato]||S.filterFormato,()=>{ S.filterFormato=""; renderSidePanel(); renderMain(); });
+  if(S.filterStatus) addChip(STATUS_LABELS[S.filterStatus]||S.filterStatus,()=>{ S.filterStatus=""; renderSidePanel(); renderMain(); });
+  S.filterTags.forEach(t=>addChip("#"+t,()=>{ S.filterTags=S.filterTags.filter(ft=>ft!==t); renderSidePanel(); renderMain(); }));
+
+  // Clear button visibility
+  $("#btnClearFilters").style.display=hasActiveFilters()?"":"none";
+
+  // Grid
+  const grid=$("#promptGrid"); grid.innerHTML="";
+  const ps=filteredPrompts();
+
+  if(!ps.length){
+    const e=document.createElement("div"); e.className="empty-state";
+    const catObj=CATS.find(c=>c.id===S.cat);
+    e.innerHTML=`<div class="empty-icon">${catObj?.icon||"📂"}</div><div class="empty-title">${hasActiveFilters()?"Nenhum resultado":"Nenhum prompt aqui ainda"}</div><div class="empty-sub">${hasActiveFilters()?"Tente limpar os filtros":"Clique em + Novo Prompt para começar"}</div>`;
+    grid.appendChild(e);
+    return;
+  }
+
+  ps.forEach(p=>grid.appendChild(buildCard(p)));
+}
+
+function buildCard(p) {
+  const card=document.createElement("div"); card.className="prompt-card";
+  const statusClass="badge-"+(p.status||"teste");
+  const statusLabel=STATUS_LABELS[p.status||"teste"]||p.status;
+  const formatoLabel=FORMATO_LABELS[p.formato]||"";
+  const visibleTags=(p.tags||[]).slice(0,4);
+  const cat=CATS.find(c=>c.id===p.categoria);
+  const subcat=SUBCATS.find(s=>s.id===p.subcategoria);
+
+  card.innerHTML=`
+    <div class="card-top">
+      <div class="card-title">${esc(p.title)}</div>
+      ${p.ai?`<div class="card-ai">${esc(p.ai.toUpperCase())}</div>`:""}
+    </div>
+    <div class="card-badges">
+      <span class="badge ${statusClass}">${esc(statusLabel)}</span>
+      ${formatoLabel?`<span class="badge badge-formato">${esc(formatoLabel)}</span>`:""}
+      ${subcat?`<span class="badge badge-formato">${esc(subcat.name)}</span>`:""}
+    </div>
+    ${p.quandoUsar?`<div class="card-when" style="color:var(--t3);font-size:11.5px;">Quando usar: ${esc(p.quandoUsar)}</div>`:""}
+    ${visibleTags.length?`<div class="card-tags">${visibleTags.map(t=>`<span class="tag">#${esc(t)}</span>`).join("")}${(p.tags||[]).length>4?`<span class="tag">+${(p.tags||[]).length-4}</span>`:""}</div>`:""}
+    <div class="card-actions">
+      <button class="card-btn primary" data-action="copy">📋 Copiar</button>
+      <button class="card-btn" data-action="edit">✏️ Editar</button>
+      <button class="card-btn" data-action="dupe">🔁 Duplicar</button>
+    </div>`;
+
+  card.addEventListener("click", e=>{
+    if(e.target.dataset.action) return;
+    openDrawer(p.id);
+  });
+  card.querySelector("[data-action=copy]").addEventListener("click",e=>{ e.stopPropagation(); copyPrompt(p.id); });
+  card.querySelector("[data-action=edit]").addEventListener("click",e=>{ e.stopPropagation(); openEditor(p.id); });
+  card.querySelector("[data-action=dupe]").addEventListener("click",e=>{ e.stopPropagation(); duplicatePrompt(p.id); });
+  return card;
+}
+
+// ── Drawer ──
+function openDrawer(id) {
+  const p=allPrompts().find(x=>x.id===id); if(!p) return;
+  S.openPromptId=id;
+  const cat=CATS.find(c=>c.id===p.categoria);
+  const subcat=SUBCATS.find(s=>s.id===p.subcategoria);
+  const statusLabel=STATUS_LABELS[p.status||"teste"]||p.status;
+  const formatoLabel=FORMATO_LABELS[p.formato]||"";
+
+  $("#drawerTitle").textContent=p.title;
+  const meta=$("#drawerMeta"); meta.innerHTML="";
+  const addBadge=(label,cls)=>{ const b=document.createElement("span"); b.className=`badge ${cls}`; b.textContent=label; meta.appendChild(b); };
+  addBadge(statusLabel,"badge-"+(p.status||"teste"));
+  if(formatoLabel) addBadge(formatoLabel,"badge-formato");
+  if(cat) addBadge(cat.icon+" "+cat.name,"badge-formato");
+  if(subcat) addBadge(subcat.name,"badge-formato");
+  if(p.ai) addBadge(p.ai.toUpperCase(),"badge-formato");
+
+  const body=$("#drawerBody"); body.innerHTML="";
+
+  // Text
+  const tl=document.createElement("div"); tl.className="drawer-section-label"; tl.textContent="Texto do Prompt";
+  const tx=document.createElement("pre"); tx.className="drawer-text"; tx.textContent=p.text||"";
+  body.appendChild(tl); body.appendChild(tx);
+
+  // Meta rows
+  const metaSection=document.createElement("div");
+  const rows=[
+    ["Quando usar", p.quandoUsar],
+    ["Não usar quando", p.naoUsarQuando],
+    ["Saída esperada", p.saidaEsperada],
+    ["Tags", (p.tags||[]).map(t=>"#"+t).join(", ")],
+    ["Nota interna", p.note],
+    ["Atualizado em", fmt(p.updatedAt)],
+  ].filter(([,v])=>v);
+  if(rows.length){
+    const sl=document.createElement("div"); sl.className="drawer-section-label"; sl.textContent="Metadados";
+    body.appendChild(sl);
+    rows.forEach(([l,v])=>{
+      const row=document.createElement("div"); row.className="drawer-info-row";
+      row.innerHTML=`<span class="drawer-info-label">${esc(l)}</span><span class="drawer-info-val">${esc(v)}</span>`;
+      body.appendChild(row);
+    });
+  }
+
+  const footer=$("#drawerFooter"); footer.innerHTML="";
+  const btnCopy=document.createElement("button"); btnCopy.className="btn primary"; btnCopy.textContent="📋 Copiar"; btnCopy.addEventListener("click",()=>copyPrompt(id));
+  const btnEdit=document.createElement("button"); btnEdit.className="btn ghost"; btnEdit.textContent="✏️ Editar"; btnEdit.addEventListener("click",()=>{ closeDrawer(); openEditor(id); });
+  const btnDupe=document.createElement("button"); btnDupe.className="btn ghost"; btnDupe.textContent="🔁 Duplicar"; btnDupe.addEventListener("click",()=>{ duplicatePrompt(id); closeDrawer(); });
+  footer.appendChild(btnCopy); footer.appendChild(btnEdit); footer.appendChild(btnDupe);
+
+  $("#drawerOverlay").classList.add("open");
+}
+function closeDrawer(){ $("#drawerOverlay").classList.remove("open"); S.openPromptId=null; }
+$("#btnCloseDrawer").addEventListener("click",closeDrawer);
+$("#drawerOverlay").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeDrawer(); });
+
+// ── Editor ──
+function openEditor(id) {
+  const p=id?allPrompts().find(x=>x.id===id):null;
+  S.editingId=id||null;
+  $("#editorTitle").textContent=p?"Editar Prompt":"Novo Prompt";
+  $("#btnDeletePrompt").style.display=p?"":"none";
+
+  // Populate categoria select
+  const sel=$("#e_categoria"); sel.innerHTML="";
+  CATS.forEach(c=>{ const o=document.createElement("option"); o.value=c.id; o.textContent=c.icon+" "+c.name; sel.appendChild(o); });
+
+  $("#e_title").value=p?.title||"";
+  $("#e_text").value=p?.text||"";
+  $("#e_categoria").value=p?.categoria||S.cat||"analise";
+  $("#e_subcategoria").value=p?.subcategoria||S.subcat||"";
+  $("#e_formato").value=p?.formato||"";
+  $("#e_status").value=p?.status||"teste";
+  $("#e_ai").value=p?.ai||"";
+  $("#e_tags").value=(p?.tags||[]).join(", ");
+  $("#e_quando").value=p?.quandoUsar||"";
+  $("#e_nao_quando").value=p?.naoUsarQuando||"";
+  $("#e_saida").value=p?.saidaEsperada||"";
+  $("#e_note").value=p?.note||"";
+  $("#editorOverlay").classList.add("show");
+  setTimeout(()=>$("#e_title").focus(),50);
+}
+function closeEditor(){ $("#editorOverlay").classList.remove("show"); S.editingId=null; }
+$("#btnCloseEditor").addEventListener("click",closeEditor);
+$("#btnCancelEditor").addEventListener("click",closeEditor);
+$("#editorOverlay").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeEditor(); });
+
+$("#btnSavePrompt").addEventListener("click",()=>{
+  const title=$("#e_title").value.trim();
+  const text=norm($("#e_text").value);
+  if(!title){ toast("Título é obrigatório 🙂"); return; }
+  if(!text){ toast("Texto é obrigatório 🙂"); return; }
+
+  const p = {
+    id: S.editingId||uid(),
+    title,
+    text,
+    categoria: $("#e_categoria").value||"analise",
+    subcategoria: $("#e_subcategoria").value||"",
+    formato: $("#e_formato").value||"",
+    status: $("#e_status").value||"teste",
+    ai: $("#e_ai").value||"",
+    tags: parseTags($("#e_tags").value),
+    quandoUsar: $("#e_quando").value.trim(),
+    naoUsarQuando: $("#e_nao_quando").value.trim(),
+    saidaEsperada: $("#e_saida").value.trim(),
+    note: $("#e_note").value.trim(),
+    updatedAt: nowISO(),
+    createdAt: S.editingId?(allPrompts().find(x=>x.id===S.editingId)?.createdAt||nowISO()):nowISO(),
+  };
+
+  if(S.editingId){
+    const idx=data.prompts.findIndex(x=>x.id===S.editingId);
+    if(idx>=0) data.prompts[idx]=p;
+    toast("Prompt atualizado ✅");
+  } else {
+    data.prompts.push(p);
+    toast("Prompt criado ✅");
+  }
+  S.cat=p.categoria;
+  save(data); closeEditor(); render();
+});
+
+$("#btnDeletePrompt").addEventListener("click",()=>{
+  if(!confirm("Excluir este prompt? Não dá pra desfazer.")) return;
+  data.prompts=data.prompts.filter(x=>x.id!==S.editingId);
+  save(data); closeEditor(); render(); toast("Prompt excluído 🗑️");
+});
+
+// ── Actions ──
+function copyPrompt(id){
+  const p=allPrompts().find(x=>x.id===id); if(!p) return;
+  navigator.clipboard.writeText(p.text||"").then(()=>toast("Copiado ✅")).catch(()=>toast("Erro ao copiar ❌"));
+}
+function duplicatePrompt(id){
+  const p=allPrompts().find(x=>x.id===id); if(!p) return;
+  const copy={...p, id:uid(), title:"[Cópia] "+p.title, status:"teste", createdAt:nowISO(), updatedAt:nowISO()};
+  data.prompts.push(copy); save(data); render(); toast("Prompt duplicado 🔁");
+}
+
+// ── New prompt button ──
+$("#btnNewPrompt").addEventListener("click",()=>openEditor(null));
+
+// ── Search ──
+$("#globalSearch").addEventListener("input",e=>{ S.search=e.target.value; renderMain(); });
+document.addEventListener("input",e=>{ if(e.target.id==="sideSearch"){ S.sideSearch=e.target.value; renderMain(); } });
+$("#btnClearFilters").addEventListener("click",()=>{
+  S.search=""; S.sideSearch=""; S.filterFormato=""; S.filterStatus=""; S.filterTags=[];
+  $("#globalSearch").value=""; $("#sideSearch").value="";
+  renderSidePanel(); renderMain();
+});
+
+// ── Theme ──
+$("#btnTheme").addEventListener("click",()=>{ const n=getTheme()==="light"?"dark":"light"; setTheme(n); toast(n==="light"?"Tema claro ☀️":"Tema escuro 🌙"); });
+
+// ── Data menu ──
+const dataMenu=$("#dataMenu");
+$("#btnDataMenu").addEventListener("click",e=>{ e.stopPropagation(); dataMenu.style.display=dataMenu.style.display==="flex"?"none":"flex"; });
+document.addEventListener("click",()=>{ dataMenu.style.display="none"; });
+dataMenu.addEventListener("click",e=>e.stopPropagation());
+
+function dl(name,content,type="application/json"){
+  const b=new Blob([content],{type}); const u=URL.createObjectURL(b);
+  const a=document.createElement("a"); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(u);
+}
+$("#btnExport").addEventListener("click",()=>{ dl("banco-prompts.json",JSON.stringify(data,null,2)); toast("Exportado ⬇️"); });
+$("#btnImport").addEventListener("click",()=>$("#importFile").click());
+$("#importFile").addEventListener("change",async e=>{
+  const f=e.target.files?.[0]; if(!f) return;
+  try{
+    const d=JSON.parse(await f.text());
+    if(d?.version===3&&Array.isArray(d.prompts)){
+      if(!confirm("Importar vai substituir os dados atuais. Continuar?")) return;
+      data=d; save(data); render(); toast("Importado ✅");
+    } else if(d?.version===2&&Array.isArray(d.categories)){
+      if(!confirm("Arquivo v2 detectado. Migrar e importar? Isso substitui os dados atuais.")) return;
+      data=migrateV2toV3(d); save(data); render(); toast("Migrado e importado ✅");
+    } else { alert("Formato não reconhecido."); }
+  }catch(err){ alert("Falha: "+err.message); }finally{ e.target.value=""; }
+});
+
+// ── Keyboard ──
+document.addEventListener("keydown",e=>{
+  const cmd=e.ctrlKey||e.metaKey; const k=e.key.toLowerCase();
+  if(k==="escape"){ if($("#editorOverlay").classList.contains("show")) closeEditor(); else closeDrawer(); }
+  if(cmd&&k==="enter"){ if($("#editorOverlay").classList.contains("show")){ e.preventDefault(); $("#btnSavePrompt").click(); } }
+  if(cmd&&k==="n"){ e.preventDefault(); openEditor(null); }
+});
+
+// ── Boot ──
+render();
+</script>
+
+<!-- ══ GOOGLE DRIVE SYNC ══ -->
+<script>
+const GDRIVE_LS_KEY = "bancoPrompts_driveClientId";
+const GDRIVE_SCOPE  = "https://www.googleapis.com/auth/drive.file";
+const GDRIVE_FNAME  = "banco_prompts.json";
+
+let driveState = {
+  clientId: localStorage.getItem(GDRIVE_LS_KEY)||"",
+  token: null, fileId: null, tokenClient: null, syncTimer: null,
+};
+
+function driveSyncBtn(state,tip){
+  const btn=document.getElementById("btnDriveSync");
+  const bar=document.getElementById("driveStatusBar");
+  btn.dataset.state=state;
+  if(tip) document.getElementById("driveSyncTooltip").textContent=tip;
+  if(state==="syncing") bar.textContent="⟳";
+  else if(state==="ok") bar.textContent="✔";
+  else if(state==="error") bar.textContent="✗";
+  else bar.textContent="";
+}
+
+async function driveFetch(url,opts={}){
+  if(!driveState.token) throw new Error("Sem token");
+  const r=await fetch(url,{...opts,headers:{Authorization:"Bearer "+driveState.token,...(opts.headers||{})}});
+  if(r.status===401){ driveState.token=null; throw new Error("Token expirado"); }
+  return r;
+}
+async function driveFindFile(){
+  const q=encodeURIComponent(`name='${GDRIVE_FNAME}' and trashed=false`);
+  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,modifiedTime)`);
+  const js=await r.json(); return js.files?.[0]||null;
+}
+async function driveDownload(fileId){
+  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+  return await r.json();
+}
+async function driveUpload(content,fileId){
+  const body=JSON.stringify(content,null,2);
+  const meta=JSON.stringify({name:GDRIVE_FNAME,mimeType:"application/json"});
+  const boundary="bprompts_bnd";
+  const multipart=`--${boundary}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
+  const url=fileId?`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`:`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
+  const r=await driveFetch(url,{method:fileId?"PATCH":"POST",headers:{"Content-Type":`multipart/related; boundary="${boundary}"`},body:multipart});
+  return await r.json();
+}
+
+async function driveSyncNow(){
+  if(!driveState.token) return;
+  try{
+    driveSyncBtn("syncing","Sincronizando…");
+    if(!driveState.fileId){ const f=await driveFindFile(); driveState.fileId=f?.id||null; }
+    const res=await driveUpload(data,driveState.fileId);
+    if(res.id) driveState.fileId=res.id;
+    driveSyncBtn("ok","Drive sincronizado ✔");
+    setTimeout(()=>driveSyncBtn("idle","Sincronizar agora"),3000);
+  }catch(e){ driveSyncBtn("error","Erro — clique para tentar"); console.error("[Drive]",e); }
+}
+
+function driveSyncDebounced(){ clearTimeout(driveState.syncTimer); driveState.syncTimer=setTimeout(driveSyncNow,2000); }
+
+async function driveInitialSync(){
+  driveSyncBtn("syncing","Conectando ao Drive…");
+  try{
+    const f=await driveFindFile();
+    if(f){
+      driveState.fileId=f.id;
+      const remote=await driveDownload(f.id);
+      const localTime=new Date(data.updatedAt||0);
+      const remoteTime=new Date(remote.updatedAt||0);
+      if(remoteTime>localTime){
+        if(confirm(`Drive tem dados mais recentes (${new Date(remote.updatedAt).toLocaleString("pt-BR")}).\nImportar do Drive?`)){
+          data=remote.version===3?remote:(remote.version===2?migrateV2toV3(remote):data);
+          save(data); render(); toast("Dados importados do Drive ☁️");
+        }
+      } else { await driveUpload(data,f.id); toast("Drive sincronizado ✔"); }
+    } else {
+      const res=await driveUpload(data,null); driveState.fileId=res.id; toast("Arquivo criado no Drive ☁️");
+    }
+    driveSyncBtn("idle","Sincronizar agora");
+  }catch(e){ driveSyncBtn("error","Erro na sincronização"); console.error("[Drive]",e); }
+}
+
+function driveInitTokenClient(clientId){
+  try{ driveState.tokenClient=google.accounts.oauth2.initTokenClient({client_id:clientId,scope:GDRIVE_SCOPE,callback:()=>{}}); return true; }
+  catch(e){ console.error("[Drive]",e); return false; }
+}
+
+document.getElementById("btnDriveSync").addEventListener("click",()=>{
+  const state=document.getElementById("btnDriveSync").dataset.state;
+  if(state==="off"||!driveState.clientId){ openDriveSetupModal(); return; }
+  if(!driveState.token){
+    if(!driveState.tokenClient) driveInitTokenClient(driveState.clientId);
+    driveSyncBtn("syncing","Aguardando login…");
+    driveState.tokenClient.callback=async(resp)=>{
+      if(resp.error){ driveSyncBtn("idle","Clique ☁️ para conectar"); return; }
+      driveState.token=resp.access_token;
+      setTimeout(()=>{ driveState.token=null; driveSyncBtn("idle","Clique ☁️ para reconectar"); },((resp.expires_in||3600)-60)*1000);
+      await driveInitialSync();
+    };
+    driveState.tokenClient.requestAccessToken({prompt:""});
+    return;
+  }
+  driveSyncNow();
+});
+
+function openDriveSetupModal(){
+  document.getElementById("driveSetupError").textContent="";
+  document.getElementById("driveClientIdInput").value=driveState.clientId||"";
+  document.getElementById("btnDriveSetupDisconnect").style.display=driveState.clientId?"inline-flex":"none";
+  document.getElementById("driveSetupModal").classList.add("show");
+  setTimeout(()=>document.getElementById("driveClientIdInput").focus(),50);
+}
+function closeDriveSetupModal(){ document.getElementById("driveSetupModal").classList.remove("show"); }
+document.getElementById("btnDriveSetupClose").addEventListener("click",closeDriveSetupModal);
+document.getElementById("driveSetupModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeDriveSetupModal(); });
+document.getElementById("btnDriveSetupDisconnect").addEventListener("click",()=>{
+  if(!confirm("Desconectar do Drive? Os dados locais não serão apagados.")) return;
+  driveState={...driveState,clientId:"",token:null,fileId:null,tokenClient:null};
+  localStorage.removeItem(GDRIVE_LS_KEY);
+  driveSyncBtn("off","Conectar Google Drive");
+  closeDriveSetupModal(); toast("Drive desconectado 🔌");
+});
+document.getElementById("btnDriveSetupSave").addEventListener("click",()=>{
+  const clientId=document.getElementById("driveClientIdInput").value.trim();
+  const err=document.getElementById("driveSetupError");
+  if(!clientId){ err.textContent="Cole o Client ID do Google Cloud."; return; }
+  if(!clientId.includes(".apps.googleusercontent.com")){ err.textContent="Formato inválido."; return; }
+  err.textContent="";
+  driveState.clientId=clientId;
+  localStorage.setItem(GDRIVE_LS_KEY,clientId);
+  closeDriveSetupModal();
+  // Connect
+  if(typeof google==="undefined"||!google.accounts){ setTimeout(()=>connectDrive(clientId),800); return; }
+  connectDrive(clientId);
+});
+function connectDrive(clientId){
+  if(typeof google==="undefined"||!google.accounts){ toast("Aguardando Google…"); setTimeout(()=>connectDrive(clientId),800); return; }
+  driveInitTokenClient(clientId);
+  driveSyncBtn("idle","Sincronizar agora");
+  // Trigger auth
+  document.getElementById("btnDriveSync").click();
+}
+
+// Patch save to also sync
+const _origSave=save;
+window.save=function(d){ _origSave(d); if(driveState.token) driveSyncDebounced(); };
+
+// Auto-connect on load
+if(driveState.clientId){
+  window.addEventListener("load",()=>{
+    setTimeout(()=>{
+      if(typeof google==="undefined"||!google.accounts){ setTimeout(()=>{ if(driveState.clientId) document.getElementById("btnDriveSync").dataset.state="idle"; },1500); return; }
+      driveInitTokenClient(driveState.clientId);
+      driveSyncBtn("syncing","Conectando…");
+      const onToken=async(resp)=>{
+        if(resp.error){
+          if(resp.error==="interaction_required"||resp.error==="user_cancelled"){
+            driveState.tokenClient.callback=async(resp2)=>{
+              if(resp2.error){ driveSyncBtn("idle","Clique ☁️ para conectar"); return; }
+              driveState.token=resp2.access_token;
+              setTimeout(()=>{ driveState.token=null; driveSyncBtn("idle","Clique ☁️ para reconectar"); },((resp2.expires_in||3600)-60)*1000);
+              await driveInitialSync();
+            };
+            driveState.tokenClient.requestAccessToken({prompt:""});
+          } else { driveSyncBtn("idle","Clique ☁️ para conectar"); }
+          return;
+        }
+        driveState.token=resp.access_token;
+        setTimeout(()=>{ driveState.token=null; driveSyncBtn("idle","Clique ☁️ para reconectar"); },((resp.expires_in||3600)-60)*1000);
+        await driveInitialSync();
+      };
+      driveState.tokenClient.callback=onToken;
+      driveState.tokenClient.requestAccessToken({prompt:"none"});
+    },800);
+  });
+}
+</script>
+</body>
+</html>
