@@ -3,7 +3,7 @@
 Este guia te leva do zero até produção para sincronizar o Promptbank com Cloudflare.
 
 Arquitetura final:
-- **Cloudflare Pages**: hospeda o app (`banco_prompts_v5 (3).html`).
+- **Cloudflare Pages**: hospeda o app estático (`index.html`).
 - **Cloudflare Worker**: API `GET/POST /sync` para leitura e escrita.
 - **Workers KV**: armazena o JSON de dados.
 
@@ -12,7 +12,7 @@ Arquitetura final:
 ## Pré-requisitos
 
 - Conta Cloudflare com permissão para **Pages**, **Workers** e **KV**.
-- Repositório com o arquivo `banco_prompts_v5 (3).html`.
+- Repositório com o arquivo `index.html` na raiz.
 - (Opcional) Node.js + `wrangler` para deploy via CLI.
 
 ---
@@ -135,6 +135,18 @@ npx wrangler deploy
   - Adicione secret `API_TOKEN`.
   - Adicione variable/secret `ALLOWED_ORIGIN` com a URL do Pages.
 
+
+#### Guia rápido (Dashboard) — Binding `PROMPTBANK_KV`
+Depois disso, faça o binding do Workers KV na aba **Bindings** para ativar o sync:
+1. Abra **Workers & Pages** → selecione o Worker/API de sync (ex.: `promptbank-sync`).
+2. Vá na aba **Bindings**.
+3. Clique em **Add** → **KV namespace**.
+4. Em **Variable name**, informe exatamente: `PROMPTBANK_KV`.
+5. Em **KV namespace**, selecione o namespace criado no Passo 1.
+6. Salve e faça um novo deploy do Worker.
+7. No app Promptbank, configure a URL `https://SEU-WORKER.workers.dev/sync` + token `API_TOKEN` e teste sincronização.
+
+
 ---
 
 ## Passo 4) Publicar o Promptbank no Cloudflare Pages
@@ -144,7 +156,7 @@ npx wrangler deploy
 3. Como é site estático:
    - Build command: vazio (ou `echo "no build"`)
    - Output directory: `/` (raiz)
-4. Garanta que o arquivo `banco_prompts_v5 (3).html` esteja publicado.
+4. Garanta que o arquivo `index.html` esteja publicado na raiz do deploy.
 5. (Opcional) Configure domínio customizado.
 
 ---
