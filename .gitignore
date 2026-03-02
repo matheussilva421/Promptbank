@@ -1,40 +1,13 @@
-# Sistema Operacional
+# OS / editors
 .DS_Store
 Thumbs.db
-desktop.ini
-
-# Dados exportados (backups locais)
-banco-prompts.json
-banco_prompts*.json
-*.backup.json
-
-# Arquivos de configuração local / segredos
-.env
-.env.local
-.env.*.local
-client_id.txt
-secrets.txt
-
-# Editores de código
 .vscode/
 .idea/
-*.sublime-project
-*.sublime-workspace
-*.swp
-*.swo
-*~
 
-# Node / npm (caso venha a usar ferramentas de build)
-node_modules/
-package-lock.json
-yarn.lock
-dist/
-build/
-
-# Logs
+# Local temporary artifacts
 *.log
-npm-debug.log*
-
-# Temporários
 *.tmp
-*.temp
+*.swp
+
+# Python local server/cache
+__pycache__/
