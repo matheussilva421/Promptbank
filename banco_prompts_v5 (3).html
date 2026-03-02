@@ -6,8 +6,7 @@
   <title>Banco de Prompts TCE/RN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <style>
+    <style>
 /* ══════════ TOKENS ══════════ */
 :root {
   --bg0:#07090f; --bg1:#0c0f1c; --bg2:#111628; --bg3:#171d32; --bg4:#1d253d;
@@ -1030,8 +1029,9 @@ const CFSYNC_URL_KEY = "bancoPrompts_cfSyncUrl";
 const CFSYNC_TOKEN_KEY = "bancoPrompts_cfSyncToken";
 
 let driveState = {
-  clientId: localStorage.getItem(GDRIVE_LS_KEY)||"",
-  token: null, fileId: null, tokenClient: null, syncTimer: null,
+  url: localStorage.getItem(CFSYNC_URL_KEY) || "",
+  token: localStorage.getItem(CFSYNC_TOKEN_KEY) || "",
+  syncTimer: null,
 };
 let cfState = {
   url: localStorage.getItem(CFSYNC_URL_KEY)||"",
@@ -1044,24 +1044,32 @@ function hasGoogleConfigured(){ return !!driveState.clientId; }
 function hasCloudflareConfigured(){ return !!(cfState.url && cfState.token); }
 function hasAnyRemoteConfigured(){ return hasGoogleConfigured() || hasCloudflareConfigured(); }
 
-function driveSyncBtn(state,tip){
-  const btn=document.getElementById("btnDriveSync");
-  const bar=document.getElementById("driveStatusBar");
-  btn.dataset.state=state;
-  if(tip) document.getElementById("driveSyncTooltip").textContent=tip;
-  if(state==="syncing") bar.textContent="⟳";
-  else if(state==="ok") bar.textContent="✔";
-  else if(state==="error") bar.textContent="✗";
-  else bar.textContent="";
+function driveSyncBtn(state, tip){
+  const btn = document.getElementById("btnDriveSync");
+  const bar = document.getElementById("driveStatusBar");
+  btn.dataset.state = state;
+  if(tip) document.getElementById("driveSyncTooltip").textContent = tip;
+  if(state === "syncing") bar.textContent = "⟳";
+  else if(state === "ok") bar.textContent = "✔";
+  else if(state === "error") bar.textContent = "✗";
+  else bar.textContent = "";
 }
 function refreshSyncIdleState(){
   driveSyncBtn(hasAnyRemoteConfigured()?"idle":"off", hasAnyRemoteConfigured()?"Sincronizar agora":"Configurar / Sincronizar");
 }
 
-async function driveFetch(url,opts={}){
-  if(!driveState.token) throw new Error("Sem token");
-  const r=await fetch(url,{...opts,headers:{Authorization:"Bearer "+driveState.token,...(opts.headers||{})}});
-  if(r.status===401){ driveState.token=null; throw new Error("Token expirado"); }
+function isConfigured(){ return !!(driveState.url && driveState.token); }
+
+async function cfFetch(method, body){
+  if(!isConfigured()) throw new Error("Sync Cloudflare não configurado");
+  const r = await fetch(driveState.url, {
+    method,
+    headers: {
+      "Authorization": "Bearer " + driveState.token,
+      ...(body ? {"Content-Type":"application/json"} : {})
+    },
+    body: body ? JSON.stringify(body, null, 2) : undefined
+  });
   return r;
 }
 async function driveFindFile(){
@@ -1206,8 +1214,9 @@ function openDriveSetupModal(){
   document.getElementById("btnDriveSetupDisconnect").style.display=hasGoogleConfigured()?"inline-flex":"none";
   document.getElementById("btnCfSetupDisconnect").style.display=hasCloudflareConfigured()?"inline-flex":"none";
   document.getElementById("driveSetupModal").classList.add("show");
-  setTimeout(()=>document.getElementById("driveClientIdInput").focus(),50);
+  setTimeout(()=>document.getElementById("cfSyncUrlInput").focus(), 50);
 }
+
 function closeDriveSetupModal(){ document.getElementById("driveSetupModal").classList.remove("show"); }
 document.getElementById("btnDriveSetupClose").addEventListener("click",closeDriveSetupModal);
 document.getElementById("driveSetupModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeDriveSetupModal(); });
