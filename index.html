@@ -641,6 +641,8 @@ let S = {
   promptSort: "updated-desc",
   catOrder: CATS.map(c=>c.id),
   manualOrder: {},
+  draggingPromptId: null,
+  suppressNextCardClick: false,
 };
 
 const UI_STATE_KEY = "bancoPrompts_uiState_v2";
@@ -970,14 +972,41 @@ function renderMain() {
       e.preventDefault();
       const dragging=grid.querySelector(".prompt-card.dragging");
       if(!dragging) return;
+
       const cards=[...grid.querySelectorAll(".prompt-card:not(.dragging)")];
-      const target=cards.find(c=>{ const r=c.getBoundingClientRect(); return e.clientY < r.top + r.height/2; });
-      if(target) grid.insertBefore(dragging,target);
-      else grid.appendChild(dragging);
+      if(!cards.length){
+        grid.appendChild(dragging);
+        return;
+      }
+
+      let bestCard=null;
+      let bestDist=Number.POSITIVE_INFINITY;
+      cards.forEach(card=>{
+        const r=card.getBoundingClientRect();
+        const cx=r.left+r.width/2;
+        const cy=r.top+r.height/2;
+        const dist=Math.hypot(e.clientX-cx,e.clientY-cy);
+        if(dist<bestDist){
+          bestDist=dist;
+          bestCard=card;
+        }
+      });
+
+      if(!bestCard){
+        grid.appendChild(dragging);
+        return;
+      }
+
+      const rect=bestCard.getBoundingClientRect();
+      const pointerBefore = e.clientY < rect.top + rect.height/2 || (Math.abs(e.clientY-(rect.top+rect.height/2))<12 && e.clientX < rect.left + rect.width/2);
+      if(pointerBefore) grid.insertBefore(dragging,bestCard);
+      else grid.insertBefore(dragging,bestCard.nextSibling);
     });
+
     grid.addEventListener("drop",e=>{
       e.preventDefault();
       setManualIdsForCurrent([...grid.querySelectorAll(".prompt-card")].map(c=>c.dataset.promptId));
+      S.draggingPromptId=null;
       renderMain();
     });
   }
@@ -1015,14 +1044,26 @@ function buildCard(p) {
 
   card.addEventListener("click", e=>{
     if(e.target.dataset.action) return;
+    if(S.suppressNextCardClick) return;
     openDrawer(p.id);
   });
   card.querySelector("[data-action=copy]").addEventListener("click",e=>{ e.stopPropagation(); copyPrompt(p.id); });
   card.querySelector("[data-action=edit]").addEventListener("click",e=>{ e.stopPropagation(); openEditor(p.id); });
   card.querySelector("[data-action=dupe]").addEventListener("click",e=>{ e.stopPropagation(); duplicatePrompt(p.id); });
   if(S.promptSort==="manual"){
-    card.addEventListener("dragstart",()=>card.classList.add("dragging"));
-    card.addEventListener("dragend",()=>card.classList.remove("dragging"));
+    card.addEventListener("dragstart",e=>{
+      card.classList.add("dragging");
+      S.draggingPromptId=p.id;
+      S.suppressNextCardClick=true;
+      if(e.dataTransfer){
+        e.dataTransfer.effectAllowed="move";
+        e.dataTransfer.setData("text/plain", p.id);
+      }
+    });
+    card.addEventListener("dragend",()=>{
+      card.classList.remove("dragging");
+      setTimeout(()=>{ S.suppressNextCardClick=false; }, 60);
+    });
   }
   return card;
 }
