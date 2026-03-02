@@ -189,7 +189,7 @@
       cursor: pointer;
       position: relative;
       font-size: 20px;
-      transition: background .15s;
+      transition: background .15s, transform .15s;
       flex-shrink: 0;
       border: 1px solid transparent;
       user-select: none;
@@ -197,6 +197,7 @@
 
     .dock-item:hover {
       background: var(--bg3);
+      transform: scale(1.05);
     }
 
     .dock-item.active {
@@ -590,13 +591,13 @@
       flex-direction: column;
       gap: 8px;
       cursor: pointer;
-      transition: border-color .15s, box-shadow .15s, transform .1s;
+      transition: border-color .15s, box-shadow .15s, transform .2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
 
     .prompt-card:hover {
-      border-color: var(--line2);
-      box-shadow: var(--sh1);
-      transform: translateY(-1px);
+      border-color: var(--blue);
+      box-shadow: 0 4px 16px rgba(20, 178, 228, 0.15);
+      transform: translateY(-2px) scale(1.01);
     }
 
     .prompt-card.manual-sort {
@@ -660,6 +661,32 @@
       align-items: flex-start;
       justify-content: space-between;
       gap: 8px;
+    }
+
+    .card-copy-quick {
+      opacity: 0;
+      background: var(--bg3);
+      border: 1px solid var(--line2);
+      border-radius: 6px;
+      padding: 4px;
+      color: var(--t2);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      line-height: 1;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    
+    .prompt-card:hover .card-copy-quick {
+      opacity: 1;
+    }
+    
+    .card-copy-quick:hover {
+      color: var(--blue);
+      border-color: var(--blue);
+      transform: scale(1.1);
     }
 
     .card-title-wrap {
@@ -845,7 +872,8 @@
       inset: 0;
       z-index: 300;
       background: rgba(0, 0, 0, .4);
-      backdrop-filter: blur(2px);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
 
     .drawer-overlay.open {
@@ -970,7 +998,8 @@
       inset: 0;
       z-index: 400;
       background: rgba(0, 0, 0, .6);
-      backdrop-filter: blur(4px);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       align-items: center;
       justify-content: center;
     }
@@ -1154,6 +1183,10 @@
       transition: all .15s;
       cursor: pointer;
     }
+    
+    .btn:active {
+      transform: scale(0.96);
+    }
 
     .btn.primary {
       background: var(--blue);
@@ -1215,8 +1248,61 @@
       border-radius: var(--r3);
       font-size: 13px;
       box-shadow: var(--sh2);
-      transition: opacity .3s;
+      transition: opacity .3s, transform .3s;
       white-space: nowrap;
+      animation: slideUp .3s ease-out forwards;
+    }
+    
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @media (max-width: 1024px) {
+      .app {
+        grid-template-columns: var(--dock-w) 220px 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1fr;
+        height: 100vh;
+      }
+      .dock {
+        flex-direction: row;
+        width: 100%;
+        padding: 8px;
+        overflow-x: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--line);
+      }
+      .dock-bottom {
+        flex-direction: row;
+        margin-top: 0;
+        margin-left: auto;
+      }
+      .dock-sep {
+        width: 1px;
+        height: 28px;
+        margin: 0 6px;
+      }
+      .dock-item .tooltip, .dock-icon-btn .tooltip {
+        display: none;
+      }
+      .side-panel {
+        border-right: none;
+        border-bottom: 1px solid var(--line);
+        max-height: 200px;
+      }
+      .prompt-grid {
+        grid-template-columns: 1fr;
+      }
+      .search-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
     }
   </style>
 </head>
@@ -2073,7 +2159,10 @@
         <span class="card-drag-handle" title="Arrastar card" draggable="true" data-action="drag-handle">⋮⋮</span>
         <div class="card-title">${esc(p.title)}</div>
       </div>
-      ${p.ai ? `<div class="card-ai">${esc(p.ai.toUpperCase())}</div>` : ""}
+      <div style="display:flex; gap:4px; align-items:center;">
+        ${p.ai ? `<div class="card-ai">${esc(p.ai.toUpperCase())}</div>` : ""}
+        <button class="card-copy-quick" data-action="copy" title="Copiar prompt">📋</button>
+      </div>
     </div>
     <div class="card-badges">
       <span class="badge ${statusClass}">${esc(statusLabel)}</span>
@@ -2083,7 +2172,6 @@
     ${p.quandoUsar ? `<div class="card-when" style="color:var(--t3);font-size:11.5px;">Quando usar: ${esc(p.quandoUsar)}</div>` : ""}
     ${visibleTags.length ? `<div class="card-tags">${visibleTags.map(t => `<span class="tag">#${esc(t)}</span>`).join("")}${(p.tags || []).length > 4 ? `<span class="tag">+${(p.tags || []).length - 4}</span>` : ""}</div>` : ""}
     <div class="card-actions">
-      <button class="card-btn primary" data-action="copy">📋 Copiar</button>
       <button class="card-btn" data-action="edit">✏️ Editar</button>
       <button class="card-btn" data-action="dupe">🔁 Duplicar</button>
     </div>`;
@@ -2335,6 +2423,10 @@
       const cmd = e.ctrlKey || e.metaKey; const k = e.key.toLowerCase();
       if (k === "escape") { if ($("#editorOverlay").classList.contains("show")) closeEditor(); else closeDrawer(); }
       if (cmd && k === "enter") { if ($("#editorOverlay").classList.contains("show")) { e.preventDefault(); $("#btnSavePrompt").click(); } }
+      if (cmd && k === "k") {
+        e.preventDefault();
+        $("#globalSearch").focus();
+      }
       if (cmd && k === "n") {
         const tag = (document.activeElement?.tagName || "").toLowerCase();
         if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
