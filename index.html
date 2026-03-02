@@ -2212,6 +2212,10 @@
       undoTimeout: null
     };
 
+    // ── Render-time context (set once per renderMain cycle, read by buildCard) ──
+    let _renderCtx = { lastSync: "0", hasRemote: false };
+    let _highlightRegexes = [];
+
     const UI_STATE_KEY = "bancoPrompts_uiState_v2";
     const CAT_ORDER_KEY = "bancoPrompts_catOrder_v1";
     const MANUAL_ORDER_KEY = "bancoPrompts_manualOrder_v1";
@@ -2432,7 +2436,8 @@
       const cat = CATS.find(c => c.id === S.cat) || CATS[0];
       $("#panelCatIcon").textContent = cat.icon;
       $("#panelCatName").textContent = cat.name;
-      const total = promptsForCat(S.cat).length;
+      const catPrompts = promptsForCat(S.cat); // cached — avoids 5+ redundant scans
+      const total = catPrompts.length;
       $("#panelCatCount").textContent = total;
 
       const body = $("#panelBody");
@@ -2444,13 +2449,13 @@
         // "All" option
         const allItem = document.createElement("div");
         allItem.className = "subcat-item" + (S.subcat === "" ? " active" : "");
-        const allCount = promptsForCat("analise").length;
+        const allCount = catPrompts.length;
         allItem.innerHTML = `<span class="subcat-item-name">🏛️ Todos os Eixos</span><span class="subcat-count">${allCount}</span>`;
         allItem.addEventListener("click", () => { S.subcat = ""; saveUIState(); renderSidePanel(); renderMain(); });
         nav.appendChild(allItem);
 
         SUBCATS.forEach(sc => {
-          const count = allPrompts().filter(p => p.categoria === "analise" && p.subcategoria === sc.id).length;
+          const count = catPrompts.filter(p => p.subcategoria === sc.id).length;
           const item = document.createElement("div");
           item.className = "subcat-item" + (S.subcat === sc.id ? " active" : "");
           item.draggable = true;
@@ -2490,7 +2495,7 @@
       }
 
       // Formato filter
-      const formatosUsed = [...new Set(promptsForCat(S.cat).map(p => p.formato).filter(Boolean))];
+      const formatosUsed = [...new Set(catPrompts.map(p => p.formato).filter(Boolean))];
       if (formatosUsed.length) {
         const fl = document.createElement("div"); fl.className = "filter-section";
         fl.innerHTML = `<div class="filter-label">Formato</div><div class="filter-chips" id="formatoChips"></div>`;
@@ -2509,7 +2514,7 @@
       const fl2 = document.createElement("div"); fl2.className = "filter-section";
       fl2.innerHTML = `<div class="filter-label">Status</div><div class="filter-chips" id="statusChips"></div>`;
       body.appendChild(fl2);
-      const statusUsed = [...new Set(promptsForCat(S.cat).map(p => p.status || "teste").filter(Boolean))];
+      const statusUsed = [...new Set(catPrompts.map(p => p.status || "teste").filter(Boolean))];
       const chips2 = fl2.querySelector("#statusChips");
       statusUsed.forEach(st => {
         const c = document.createElement("span");
@@ -2520,7 +2525,7 @@
       });
 
       // AI filter
-      const aisUsed = [...new Set(promptsForCat(S.cat).map(p => p.ai).filter(Boolean))];
+      const aisUsed = [...new Set(catPrompts.map(p => p.ai).filter(Boolean))];
       if (aisUsed.length > 1) {
         const fl3 = document.createElement("div"); fl3.className = "filter-section";
         fl3.innerHTML = `<div class="filter-label">IA</div><div class="filter-chips" id="aiChips"></div>`;
@@ -2541,7 +2546,7 @@
 
       // Popular tags
       const tagCounts = {};
-      promptsForCat(S.cat).forEach(p => (p.tags || []).forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
+      catPrompts.forEach(p => (p.tags || []).forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
       const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([t]) => t);
       if (topTags.length) {
         const fl4 = document.createElement("div"); fl4.className = "filter-section";
@@ -2654,6 +2659,20 @@
           openDrawer(id);
         });
       }
+      // Pre-compute render context once per cycle (avoids per-card localStorage reads & regex creation)
+      _renderCtx.hasRemote = typeof hasAnyRemoteConfigured !== "undefined" && hasAnyRemoteConfigured();
+      _renderCtx.lastSync = _renderCtx.hasRemote ? (localStorage.getItem("bancoPrompts_lastSyncTime") || "0") : "0";
+      _highlightRegexes = [];
+      const _renderQuery = (S.search || S.sideSearch).trim();
+      if (_renderQuery) {
+        _renderQuery.toLowerCase().split(/\s+/).filter(Boolean).forEach(w => {
+          try {
+            const safeW = esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            _highlightRegexes.push(new RegExp(`(?<!&[a-z]{1,5};)(${safeW})(?![^<]*>|[^&]*;)`, "gi"));
+          } catch(e) {}
+        });
+      }
+
       const ps = filteredPrompts();
 
       if (!ps.length) {
@@ -2754,25 +2773,14 @@
       const subcat = SUBCATS.find(s => s.id === p.subcategoria);
 
       let syncStatusHtml = "";
-      if (typeof hasAnyRemoteConfigured !== "undefined" && hasAnyRemoteConfigured()) {
-        const lastSync = localStorage.getItem("bancoPrompts_lastSyncTime") || "0";
-        if (lastSync !== "0") {
-          const needsSync = !p.deletedAt && new Date(p.updatedAt) > new Date(lastSync);
-          syncStatusHtml = needsSync ? `<span title="Alterações locais pendentes de sincronização" style="font-size:10px;margin-left:auto;">🟡</span>` : `<span title="Sincronizado" style="font-size:10px;margin-left:auto;opacity:0.5;">🟢</span>`;
-        }
+      if (_renderCtx.hasRemote && _renderCtx.lastSync !== "0") {
+        const needsSync = !p.deletedAt && new Date(p.updatedAt) > new Date(_renderCtx.lastSync);
+        syncStatusHtml = needsSync ? `<span title="Alterações locais pendentes de sincronização" style="font-size:10px;margin-left:auto;">🟡</span>` : `<span title="Sincronizado" style="font-size:10px;margin-left:auto;opacity:0.5;">🟢</span>`;
       }
 
       let cardTitle = esc(p.title);
-      const query = (S.search || S.sideSearch).trim();
-      if (query) {
-        try {
-          const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-          words.forEach(w => {
-            const safeW = esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const r = new RegExp(`(?<!&[a-z]{1,5};)(${safeW})(?![^<]*>|[^&]*;)`, "gi");
-            cardTitle = cardTitle.replace(r, "<mark>$1</mark>");
-          });
-        } catch (e) { }
+      for (const r of _highlightRegexes) {
+        cardTitle = cardTitle.replace(r, "<mark>$1</mark>");
       }
 
       card.innerHTML = `
@@ -2930,9 +2938,13 @@
 
       const eBody = $("#modalEditorBody");
       if (eBody) {
+        let _editorScrollRaf = null;
         eBody.onscroll = () => {
-          if (eBody.scrollTop > 10) eBody.style.boxShadow = "inset 0 10px 10px -10px rgba(0,0,0,0.5)";
-          else eBody.style.boxShadow = "none";
+          if (_editorScrollRaf) return;
+          _editorScrollRaf = requestAnimationFrame(() => {
+            eBody.style.boxShadow = eBody.scrollTop > 10 ? "inset 0 10px 10px -10px rgba(0,0,0,0.5)" : "none";
+            _editorScrollRaf = null;
+          });
         };
       }
 
@@ -3021,7 +3033,8 @@
       if (activeEl) activeEl.scrollIntoView({ block: "nearest" });
     }
 
-    $("#paletteInput").addEventListener("input", e => { _paletteIdx = 0; renderPalette(e.target.value); });
+    const renderPaletteDebounced = debounce(q => renderPalette(q), 80);
+    $("#paletteInput").addEventListener("input", e => { _paletteIdx = 0; renderPaletteDebounced(e.target.value); });
     $("#paletteInput").addEventListener("keydown", e => {
       const items = $("#paletteResults").children;
       if (e.key === "ArrowDown") {
