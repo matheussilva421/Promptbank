@@ -6,6 +6,7 @@
   <title>Banco de Prompts TCE/RN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
 /* ══════════ TOKENS ══════════ */
 :root {
@@ -236,8 +237,8 @@ a{color:inherit;text-decoration:none;}
   <aside class="side-panel">
     <div class="panel-head">
       <div class="panel-cat-title">
-        <span class="panel-cat-icon" id="panelCatIcon">📌</span>
-        <span class="panel-cat-name" id="panelCatName">Fixadas</span>
+        <span class="panel-cat-icon" id="panelCatIcon">🗂️</span>
+        <span class="panel-cat-name" id="panelCatName">Todos os Prompts</span>
         <span class="panel-cat-count" id="panelCatCount">0</span>
       </div>
       <div class="panel-search">
@@ -433,11 +434,15 @@ const LS_KEY_V2 = "bancoPrompts_v2";
 const CATS = [
   { id:"todos",       name:"Todos os Prompts",   icon:"🗂️", desc:"Todos os prompts em um lugar" },
   { id:"analise",     name:"Análise por Eixo",   icon:"⚡", desc:"Análise detalhada por eixo" },
+  { id:"triagem",     name:"Triagem",             icon:"🧭", desc:"Prompts para triagem e leitura inicial" },
+  { id:"diligencias", name:"Diligências",         icon:"📬", desc:"Reanálises e pós-diligência" },
   { id:"geral",       name:"Análise",             icon:"🏛️", desc:"Análise geral de processos" },
   { id:"informacao",  name:"Informação Técnica",  icon:"📝", desc:"Templates e prompts para redação de IT" },
   { id:"especiais",   name:"Casos Especiais",     icon:"🚨", desc:"Cenários específicos e exceções" },
   { id:"arquivados",  name:"Arquivados",          icon:"🗃️", desc:"Prompts antigos ou substituídos" },
 ];
+
+const EDITABLE_CATS = CATS.filter(c=>c.id!=="todos"&&c.id!=="arquivados");
 
 const SUBCATS = [
   { id:"eixo1", name:"Eixo 1", desc:"Qualidade de Segurado do RPPS" },
@@ -459,7 +464,8 @@ const $ = (s,r=document) => r.querySelector(s);
 const uid = () => Math.random().toString(16).slice(2)+"-"+Date.now().toString(16);
 const nowISO = () => new Date().toISOString();
 const esc = s => String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
-const parseTags = s => (s||"").split(",").map(t=>t.trim()).filter(Boolean);
+const normalizeTag = t => (t||"").trim().toLowerCase();
+const parseTags = s => [...new Set((s||"").split(",").map(normalizeTag).filter(Boolean))];
 const fmt = iso => { try{ return new Date(iso).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}); }catch(e){ return "—"; }};
 const norm = t => { if(!t) return ""; return t.replace(/\r\n/g,"\n").replace(/\r/g,"\n").trim(); };
 
@@ -567,16 +573,38 @@ function defaultData() {
   return { version:3, createdAt:nowISO(), updatedAt:nowISO(), prompts:[] };
 }
 
+function normalizePromptPayload(d){
+  if(!d?.prompts||!Array.isArray(d.prompts)) return d;
+  let changed=false;
+  d.prompts=d.prompts.map(p=>{
+    const tags=[...new Set((Array.isArray(p.tags)?p.tags:[]).map(normalizeTag).filter(Boolean))];
+    const ai=(p.ai||"").trim().toLowerCase();
+    if(JSON.stringify(tags)!==JSON.stringify(p.tags||[]) || ai!==(p.ai||"")) changed=true;
+    return {...p,tags,ai};
+  });
+  if(changed) d.updatedAt=nowISO();
+  return d;
+}
+
 function load() {
   // Try v3
   try {
     const r=localStorage.getItem(LS_KEY_V3);
-    if(r){ const d=JSON.parse(r); if(d?.version===3&&Array.isArray(d.prompts)) return d; }
+    if(r){ const d=JSON.parse(r); if(d?.version===3&&Array.isArray(d.prompts)) return normalizePromptPayload(d); }
   } catch(e){}
   // Try v2 → migrate
   try {
     const r=localStorage.getItem(LS_KEY_V2);
     if(r){ const d=JSON.parse(r); if(d?.version===2&&Array.isArray(d.categories)) { toast("Dados migrados para v5 ✅"); return migrateV2toV3(d); } }
+  } catch(e){}
+  // Try embedded data
+  try {
+    const embedded = document.getElementById("embeddedData")?.textContent?.trim();
+    if(embedded){
+      const d=JSON.parse(embedded);
+      if(d?.version===3&&Array.isArray(d.prompts)) return normalizePromptPayload(d);
+      if(d?.version===2&&Array.isArray(d.categories)) return migrateV2toV3(d);
+    }
   } catch(e){}
   return defaultData();
 }
@@ -591,16 +619,34 @@ try { save(data); } catch(e){}
 
 // ── State ──
 let S = {
-  cat: "fixadas",
+  cat: "todos",
   subcat: "",         // for analise
   filterFormato: "",
   filterStatus: "",
   filterTags: [],
+  filterAis: [],
   search: "",
   sideSearch: "",
   openPromptId: null,
   editingId: null,
 };
+
+const UI_STATE_KEY = "bancoPrompts_uiState_v1";
+
+function saveUIState(){
+  localStorage.setItem(UI_STATE_KEY, JSON.stringify({ cat: S.cat, subcat: S.cat==="analise" ? S.subcat : "" }));
+}
+
+function loadUIState(){
+  try{
+    const raw = localStorage.getItem(UI_STATE_KEY);
+    if(!raw) return;
+    const st = JSON.parse(raw);
+    if(st?.cat && CATS.some(c=>c.id===st.cat)) S.cat = st.cat;
+    if(S.cat!=="analise") { S.subcat=""; return; }
+    if(st?.subcat && SUBCATS.some(sc=>sc.id===st.subcat)) S.subcat = st.subcat;
+  }catch(e){}
+}
 
 // ── Theme ──
 const getTheme = () => localStorage.getItem("bpTheme")==="light"?"light":"dark";
@@ -611,6 +657,7 @@ document.documentElement.setAttribute("data-theme", getTheme());
 function allPrompts() { return data.prompts||[]; }
 function promptsForCat(cat) {
   if(cat==="todos") return allPrompts();
+  if(cat==="arquivados") return allPrompts().filter(p=>p.status==="arquivado" || p.categoria==="arquivados");
   return allPrompts().filter(p => {
     if(cat==="analise") return p.categoria==="analise";
     return p.categoria===cat;
@@ -620,14 +667,16 @@ function filteredPrompts() {
   let ps = promptsForCat(S.cat);
   if(S.cat==="analise"&&S.subcat) ps=ps.filter(p=>p.subcategoria===S.subcat);
   const q=(S.search||S.sideSearch).trim().toLowerCase();
-  if(q) ps=ps.filter(p=>[p.title,p.text,...(p.tags||[]),p.quandoUsar,p.nota].filter(Boolean).join(" ").toLowerCase().includes(q));
+  if(q) ps=ps.filter(p=>[p.title,p.text,...(p.tags||[]),p.quandoUsar,p.note].filter(Boolean).join(" ").toLowerCase().includes(q));
   if(S.filterFormato) ps=ps.filter(p=>p.formato===S.filterFormato);
   if(S.filterStatus) ps=ps.filter(p=>p.status===S.filterStatus);
   if(S.filterTags.length) ps=ps.filter(p=>S.filterTags.every(ft=>(p.tags||[]).map(t=>t.toLowerCase()).includes(ft.toLowerCase())));
+  if(S.filterAis.length) ps=ps.filter(p=>S.filterAis.includes((p.ai||"").toLowerCase()));
+  ps=ps.slice().sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0));
   return ps;
 }
 function hasActiveFilters() {
-  return S.search||S.sideSearch||S.filterFormato||S.filterStatus||S.filterTags.length;
+  return S.search||S.sideSearch||S.filterFormato||S.filterStatus||S.filterTags.length||S.filterAis.length;
 }
 
 // ── Render ──
@@ -642,8 +691,9 @@ function renderDock() {
     d.innerHTML=`${cat.icon}<div class="tooltip">${esc(cat.name)} (${count})</div>`;
     d.addEventListener("click",()=>{
       S.cat=cat.id; S.subcat=""; S.sideSearch=""; S.search="";
-      S.filterFormato=""; S.filterStatus=""; S.filterTags=[];
+      S.filterFormato=""; S.filterStatus=""; S.filterTags=[]; S.filterAis=[];
       $("#sideSearch").value=""; $("#globalSearch").value="";
+      saveUIState();
       render();
     });
     el.appendChild(d);
@@ -668,7 +718,7 @@ function renderSidePanel() {
     allItem.className="subcat-item"+(S.subcat===""?" active":"");
     const allCount=promptsForCat("analise").length;
     allItem.innerHTML=`<span class="subcat-item-name">🏛️ Todos os Eixos</span><span class="subcat-count">${allCount}</span>`;
-    allItem.addEventListener("click",()=>{ S.subcat=""; renderSidePanel(); renderMain(); });
+    allItem.addEventListener("click",()=>{ S.subcat=""; saveUIState(); renderSidePanel(); renderMain(); });
     nav.appendChild(allItem);
     
     SUBCATS.forEach(sc=>{
@@ -676,7 +726,7 @@ function renderSidePanel() {
       const item=document.createElement("div");
       item.className="subcat-item"+(S.subcat===sc.id?" active":"");
       item.innerHTML=`<span class="subcat-item-name">${esc(sc.name)}</span><span class="subcat-count">${count}</span>`;
-      item.addEventListener("click",()=>{ S.subcat=sc.id; renderSidePanel(); renderMain(); });
+      item.addEventListener("click",()=>{ S.subcat=sc.id; saveUIState(); renderSidePanel(); renderMain(); });
       nav.appendChild(item);
     });
     body.appendChild(nav);
@@ -724,10 +774,11 @@ function renderSidePanel() {
     const chips3=fl3.querySelector("#aiChips");
     aisUsed.forEach(ai=>{
       const c=document.createElement("span");
-      c.className="chip"+(S.filterTags.includes(ai)?" active":"");
+      const aiKey=ai.toLowerCase();
+      c.className="chip"+(S.filterAis.includes(aiKey)?" active":"");
       c.textContent=ai.charAt(0).toUpperCase()+ai.slice(1);
       c.addEventListener("click",()=>{
-        S.filterTags=S.filterTags.includes(ai)?S.filterTags.filter(t=>t!==ai):[...S.filterTags,ai];
+        S.filterAis=S.filterAis.includes(aiKey)?S.filterAis.filter(t=>t!==aiKey):[...S.filterAis,aiKey];
         renderSidePanel(); renderMain();
       });
       chips3.appendChild(c);
@@ -769,6 +820,7 @@ function renderMain() {
   if(S.filterFormato) addChip(FORMATO_LABELS[S.filterFormato]||S.filterFormato,()=>{ S.filterFormato=""; renderSidePanel(); renderMain(); });
   if(S.filterStatus) addChip(STATUS_LABELS[S.filterStatus]||S.filterStatus,()=>{ S.filterStatus=""; renderSidePanel(); renderMain(); });
   S.filterTags.forEach(t=>addChip("#"+t,()=>{ S.filterTags=S.filterTags.filter(ft=>ft!==t); renderSidePanel(); renderMain(); }));
+  S.filterAis.forEach(ai=>addChip("IA:"+ai.toUpperCase(),()=>{ S.filterAis=S.filterAis.filter(a=>a!==ai); renderSidePanel(); renderMain(); }));
 
   // Clear button visibility
   $("#btnClearFilters").style.display=hasActiveFilters()?"":"none";
@@ -891,12 +943,16 @@ function openEditor(id) {
 
   // Populate categoria select
   const sel=$("#e_categoria"); sel.innerHTML="";
-  CATS.forEach(c=>{ const o=document.createElement("option"); o.value=c.id; o.textContent=c.icon+" "+c.name; sel.appendChild(o); });
+  EDITABLE_CATS.forEach(c=>{ const o=document.createElement("option"); o.value=c.id; o.textContent=c.icon+" "+c.name; sel.appendChild(o); });
+
+  const fallbackCat = EDITABLE_CATS.some(c=>c.id===S.cat) ? S.cat : "analise";
+  const promptCat = p?.categoria;
+  const initialCat = EDITABLE_CATS.some(c=>c.id===promptCat) ? promptCat : fallbackCat;
 
   $("#e_title").value=p?.title||"";
   $("#e_text").value=p?.text||"";
-  $("#e_categoria").value=p?.categoria||S.cat||"analise";
-  $("#e_subcategoria").value=p?.subcategoria||S.subcat||"";
+  $("#e_categoria").value=initialCat;
+  $("#e_subcategoria").value=(initialCat==="analise" ? (p?.subcategoria||S.subcat||"") : "");
   $("#e_formato").value=p?.formato||"";
   $("#e_status").value=p?.status||"teste";
   $("#e_ai").value=p?.ai||"";
@@ -905,13 +961,40 @@ function openEditor(id) {
   $("#e_nao_quando").value=p?.naoUsarQuando||"";
   $("#e_saida").value=p?.saidaEsperada||"";
   $("#e_note").value=p?.note||"";
+  toggleSubcatField();
+  snapshotEditorInitialValues();
   $("#editorOverlay").classList.add("show");
   setTimeout(()=>$("#e_title").focus(),50);
 }
-function closeEditor(){ $("#editorOverlay").classList.remove("show"); S.editingId=null; }
+function editorHasChanges(){
+  const fields=["#e_title","#e_text","#e_categoria","#e_subcategoria","#e_formato","#e_status","#e_ai","#e_tags","#e_quando","#e_nao_quando","#e_saida","#e_note"];
+  return fields.some(sel=>{
+    const el=$(sel);
+    return (el?.value||"") !== (el?.dataset.initial||"");
+  });
+}
+function closeEditor(force=false){
+  if(!force && editorHasChanges() && !confirm("Descartar alterações não salvas?")) return;
+  $("#editorOverlay").classList.remove("show"); S.editingId=null;
+}
 $("#btnCloseEditor").addEventListener("click",closeEditor);
 $("#btnCancelEditor").addEventListener("click",closeEditor);
 $("#editorOverlay").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeEditor(); });
+$("#e_categoria").addEventListener("change",toggleSubcatField);
+
+function toggleSubcatField(){
+  const field = $("#e_subcategoria")?.closest(".field");
+  const isAnalise = $("#e_categoria")?.value === "analise";
+  if(field) field.style.display = isAnalise ? "" : "none";
+  if(!isAnalise) $("#e_subcategoria").value = "";
+}
+
+function snapshotEditorInitialValues(){
+  ["#e_title","#e_text","#e_categoria","#e_subcategoria","#e_formato","#e_status","#e_ai","#e_tags","#e_quando","#e_nao_quando","#e_saida","#e_note"].forEach(sel=>{
+    const el=$(sel);
+    if(el) el.dataset.initial = el.value || "";
+  });
+}
 
 $("#btnSavePrompt").addEventListener("click",()=>{
   const title=$("#e_title").value.trim();
@@ -919,14 +1002,17 @@ $("#btnSavePrompt").addEventListener("click",()=>{
   if(!title){ toast("Título é obrigatório 🙂"); return; }
   if(!text){ toast("Texto é obrigatório 🙂"); return; }
 
+  const categoria = $("#e_categoria").value||"analise";
+  const status = $("#e_status").value||"teste";
+
   const p = {
     id: S.editingId||uid(),
     title,
     text,
-    categoria: $("#e_categoria").value||"analise",
+    categoria,
     subcategoria: $("#e_subcategoria").value||"",
     formato: $("#e_formato").value||"",
-    status: $("#e_status").value||"teste",
+    status,
     ai: $("#e_ai").value||"",
     tags: parseTags($("#e_tags").value),
     quandoUsar: $("#e_quando").value.trim(),
@@ -945,14 +1031,15 @@ $("#btnSavePrompt").addEventListener("click",()=>{
     data.prompts.push(p);
     toast("Prompt criado ✅");
   }
-  S.cat=p.categoria;
-  save(data); closeEditor(); render();
+  S.cat=p.status==="arquivado" ? "arquivados" : (EDITABLE_CATS.some(c=>c.id===p.categoria) ? p.categoria : "analise");
+  saveUIState();
+  save(data); closeEditor(true); render();
 });
 
 $("#btnDeletePrompt").addEventListener("click",()=>{
   if(!confirm("Excluir este prompt? Não dá pra desfazer.")) return;
   data.prompts=data.prompts.filter(x=>x.id!==S.editingId);
-  save(data); closeEditor(); render(); toast("Prompt excluído 🗑️");
+  save(data); closeEditor(true); render(); toast("Prompt excluído 🗑️");
 });
 
 // ── Actions ──
@@ -973,7 +1060,7 @@ $("#btnNewPrompt").addEventListener("click",()=>openEditor(null));
 $("#globalSearch").addEventListener("input",e=>{ S.search=e.target.value; renderMain(); });
 document.addEventListener("input",e=>{ if(e.target.id==="sideSearch"){ S.sideSearch=e.target.value; renderMain(); } });
 $("#btnClearFilters").addEventListener("click",()=>{
-  S.search=""; S.sideSearch=""; S.filterFormato=""; S.filterStatus=""; S.filterTags=[];
+  S.search=""; S.sideSearch=""; S.filterFormato=""; S.filterStatus=""; S.filterTags=[]; S.filterAis=[];
   $("#globalSearch").value=""; $("#sideSearch").value="";
   renderSidePanel(); renderMain();
 });
@@ -1013,10 +1100,15 @@ document.addEventListener("keydown",e=>{
   const cmd=e.ctrlKey||e.metaKey; const k=e.key.toLowerCase();
   if(k==="escape"){ if($("#editorOverlay").classList.contains("show")) closeEditor(); else closeDrawer(); }
   if(cmd&&k==="enter"){ if($("#editorOverlay").classList.contains("show")){ e.preventDefault(); $("#btnSavePrompt").click(); } }
-  if(cmd&&k==="n"){ e.preventDefault(); openEditor(null); }
+  if(cmd&&k==="n"){
+    const tag=(document.activeElement?.tagName||"").toLowerCase();
+    if(tag==="input"||tag==="textarea"||document.activeElement?.isContentEditable) return;
+    e.preventDefault(); openEditor(null);
+  }
 });
 
 // ── Boot ──
+loadUIState();
 render();
 </script>
 
@@ -1029,8 +1121,10 @@ const CFSYNC_URL_KEY = "bancoPrompts_cfSyncUrl";
 const CFSYNC_TOKEN_KEY = "bancoPrompts_cfSyncToken";
 
 let driveState = {
-  url: localStorage.getItem(CFSYNC_URL_KEY) || "",
-  token: localStorage.getItem(CFSYNC_TOKEN_KEY) || "",
+  clientId: localStorage.getItem(GDRIVE_LS_KEY) || "",
+  token: null,
+  fileId: null,
+  tokenClient: null,
   syncTimer: null,
 };
 let cfState = {
@@ -1058,20 +1152,12 @@ function refreshSyncIdleState(){
   driveSyncBtn(hasAnyRemoteConfigured()?"idle":"off", hasAnyRemoteConfigured()?"Sincronizar agora":"Configurar / Sincronizar");
 }
 
-function isConfigured(){ return !!(driveState.url && driveState.token); }
-
-async function cfFetch(method, body){
-  if(!isConfigured()) throw new Error("Sync Cloudflare não configurado");
-  const r = await fetch(driveState.url, {
-    method,
-    headers: {
-      "Authorization": "Bearer " + driveState.token,
-      ...(body ? {"Content-Type":"application/json"} : {})
-    },
-    body: body ? JSON.stringify(body, null, 2) : undefined
-  });
-  return r;
+async function driveFetch(url, init={}){
+  if(!driveState.token) throw new Error("Google Drive não autenticado");
+  const headers={...(init.headers||{}),"Authorization":"Bearer "+driveState.token};
+  return fetch(url,{...init,headers});
 }
+
 async function driveFindFile(){
   const q=encodeURIComponent(`name='${GDRIVE_FNAME}' and trashed=false`);
   const r=await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,modifiedTime)`);
@@ -1124,10 +1210,19 @@ async function ensureGoogleReadyAndSync(initial=false){
   if(!hasGoogleConfigured()) return;
   if(typeof google==="undefined"||!google.accounts){ throw new Error("Google indisponível"); }
   if(!driveState.tokenClient) driveInitTokenClient(driveState.clientId);
+  if(!driveState.tokenClient) throw new Error("Falha ao inicializar cliente OAuth do Google");
   if(driveState.token){ if(initial) await driveInitialSync(); else await driveSyncNow(); return; }
   await new Promise((resolve,reject)=>{
+    let didFallback=false;
     driveState.tokenClient.callback=async(resp)=>{
-      if(resp.error){ reject(new Error(resp.error)); return; }
+      if(resp.error){
+        if(initial && !didFallback && ["interaction_required","login_required","consent_required"].includes(resp.error)){
+          didFallback=true;
+          driveState.tokenClient.requestAccessToken({prompt:"consent"});
+          return;
+        }
+        reject(new Error(resp.error)); return;
+      }
       driveState.token=resp.access_token;
       setTimeout(()=>{ driveState.token=null; refreshSyncIdleState(); },((resp.expires_in||3600)-60)*1000);
       try{ if(initial) await driveInitialSync(); else await driveSyncNow(); resolve(); }catch(e){ reject(e); }
@@ -1264,12 +1359,13 @@ document.getElementById("btnDriveSetupSave").addEventListener("click", async ()=
 });
 
 const _origSave=save;
-window.save=function(d){
+save=function(d){
   _origSave(d);
   if(suppressAutoSync) return;
   if(driveState.token) driveSyncDebounced();
   if(hasCloudflareConfigured()) cfSyncDebounced();
 };
+window.save=save;
 
 refreshSyncIdleState();
 if(hasAnyRemoteConfigured()) window.addEventListener("load",()=>setTimeout(runInitialSyncs,800));
