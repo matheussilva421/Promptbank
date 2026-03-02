@@ -442,6 +442,8 @@ const CATS = [
   { id:"arquivados",  name:"Arquivados",          icon:"🗃️", desc:"Prompts antigos ou substituídos" },
 ];
 
+const EDITABLE_CATS = CATS.filter(c=>c.id!=="todos"&&c.id!=="arquivados");
+
 const SUBCATS = [
   { id:"eixo1", name:"Eixo 1", desc:"Qualidade de Segurado do RPPS" },
   { id:"eixo3", name:"Eixo 3", desc:"Requisitos / Tempo / Compensação" },
@@ -927,12 +929,16 @@ function openEditor(id) {
 
   // Populate categoria select
   const sel=$("#e_categoria"); sel.innerHTML="";
-  CATS.forEach(c=>{ const o=document.createElement("option"); o.value=c.id; o.textContent=c.icon+" "+c.name; sel.appendChild(o); });
+  EDITABLE_CATS.forEach(c=>{ const o=document.createElement("option"); o.value=c.id; o.textContent=c.icon+" "+c.name; sel.appendChild(o); });
+
+  const fallbackCat = EDITABLE_CATS.some(c=>c.id===S.cat) ? S.cat : "analise";
+  const promptCat = p?.categoria;
+  const initialCat = EDITABLE_CATS.some(c=>c.id===promptCat) ? promptCat : fallbackCat;
 
   $("#e_title").value=p?.title||"";
   $("#e_text").value=p?.text||"";
-  $("#e_categoria").value=p?.categoria||S.cat||"analise";
-  $("#e_subcategoria").value=p?.subcategoria||S.subcat||"";
+  $("#e_categoria").value=initialCat;
+  $("#e_subcategoria").value=(initialCat==="analise" ? (p?.subcategoria||S.subcat||"") : "");
   $("#e_formato").value=p?.formato||"";
   $("#e_status").value=p?.status||"teste";
   $("#e_ai").value=p?.ai||"";
@@ -992,7 +998,7 @@ $("#btnSavePrompt").addEventListener("click",()=>{
     categoria,
     subcategoria: $("#e_subcategoria").value||"",
     formato: $("#e_formato").value||"",
-    status: categoria==="arquivados" ? "arquivado" : status,
+    status,
     ai: $("#e_ai").value||"",
     tags: parseTags($("#e_tags").value),
     quandoUsar: $("#e_quando").value.trim(),
@@ -1011,7 +1017,7 @@ $("#btnSavePrompt").addEventListener("click",()=>{
     data.prompts.push(p);
     toast("Prompt criado ✅");
   }
-  S.cat=p.status==="arquivado" ? "arquivados" : p.categoria;
+  S.cat=p.status==="arquivado" ? "arquivados" : (EDITABLE_CATS.some(c=>c.id===p.categoria) ? p.categoria : "analise");
   saveUIState();
   save(data); closeEditor(true); render();
 });
