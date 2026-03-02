@@ -116,8 +116,7 @@ a{color:inherit;text-decoration:none;}
 .prompt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;align-content:start;}
 .prompt-card{background:var(--bg1);border:1px solid var(--line);border-radius:var(--r3);padding:14px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .1s;}
 .prompt-card:hover{border-color:var(--line2);box-shadow:var(--sh1);transform:translateY(-1px);}
-.prompt-card.manual-sort{cursor:grab;}
-.prompt-card.manual-sort:active{cursor:grabbing;}
+.prompt-card.manual-sort{cursor:default;}
 .prompt-card.dragging{opacity:.5;border-style:dashed;}
 .sort-bar{display:flex;gap:8px;padding:8px 0 4px;align-items:center;flex-wrap:wrap;}
 .sort-label{font-size:12px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
@@ -126,6 +125,10 @@ a{color:inherit;text-decoration:none;}
 .settings-sep{height:1px;background:var(--line2);margin:12px 0;}
 .settings-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap;}
 .card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.card-title-wrap{display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0;}
+.card-drag-handle{display:none;border:1px dashed var(--line2);background:var(--bg2);color:var(--t3);border-radius:8px;padding:1px 6px;font-size:14px;line-height:1.2;cursor:grab;user-select:none;flex-shrink:0;}
+.prompt-card.manual-sort .card-drag-handle{display:inline-flex;}
+.card-drag-handle:active{cursor:grabbing;}
 .card-title{font-weight:600;font-size:13px;line-height:1.4;flex:1;}
 .card-ai{font-size:10px;font-family:var(--mono);color:var(--t3);background:var(--bg3);padding:2px 6px;border-radius:4px;flex-shrink:0;}
 .card-badges{display:flex;flex-wrap:wrap;gap:4px;}
@@ -970,7 +973,7 @@ function renderMain() {
   if(S.promptSort==="manual"){
     grid.addEventListener("dragover",e=>{
       e.preventDefault();
-      const dragging=grid.querySelector(".prompt-card.dragging");
+      const dragging=S.draggingPromptId ? grid.querySelector(`.prompt-card[data-prompt-id="${S.draggingPromptId}"]`) : null;
       if(!dragging) return;
 
       const cards=[...grid.querySelectorAll(".prompt-card:not(.dragging)")];
@@ -1016,7 +1019,6 @@ function buildCard(p) {
   const card=document.createElement("div");
   card.className="prompt-card"+(S.promptSort==="manual"?" manual-sort":"");
   card.dataset.promptId=p.id;
-  if(S.promptSort==="manual") card.draggable=true;
   const statusClass="badge-"+(p.status||"teste");
   const statusLabel=STATUS_LABELS[p.status||"teste"]||p.status;
   const formatoLabel=FORMATO_LABELS[p.formato]||"";
@@ -1026,7 +1028,10 @@ function buildCard(p) {
 
   card.innerHTML=`
     <div class="card-top">
-      <div class="card-title">${esc(p.title)}</div>
+      <div class="card-title-wrap">
+        <span class="card-drag-handle" title="Arrastar card" draggable="true" data-action="drag-handle">⋮⋮</span>
+        <div class="card-title">${esc(p.title)}</div>
+      </div>
       ${p.ai?`<div class="card-ai">${esc(p.ai.toUpperCase())}</div>`:""}
     </div>
     <div class="card-badges">
@@ -1043,7 +1048,7 @@ function buildCard(p) {
     </div>`;
 
   card.addEventListener("click", e=>{
-    if(e.target.dataset.action) return;
+    if(e.target.closest("[data-action]")) return;
     if(S.suppressNextCardClick) return;
     openDrawer(p.id);
   });
@@ -1051,7 +1056,8 @@ function buildCard(p) {
   card.querySelector("[data-action=edit]").addEventListener("click",e=>{ e.stopPropagation(); openEditor(p.id); });
   card.querySelector("[data-action=dupe]").addEventListener("click",e=>{ e.stopPropagation(); duplicatePrompt(p.id); });
   if(S.promptSort==="manual"){
-    card.addEventListener("dragstart",e=>{
+    const handle=card.querySelector('[data-action="drag-handle"]');
+    handle.addEventListener("dragstart",e=>{
       card.classList.add("dragging");
       S.draggingPromptId=p.id;
       S.suppressNextCardClick=true;
@@ -1060,9 +1066,10 @@ function buildCard(p) {
         e.dataTransfer.setData("text/plain", p.id);
       }
     });
-    card.addEventListener("dragend",()=>{
+    handle.addEventListener("dragend",()=>{
       card.classList.remove("dragging");
-      setTimeout(()=>{ S.suppressNextCardClick=false; }, 60);
+      S.draggingPromptId=null;
+      setTimeout(()=>{ S.suppressNextCardClick=false; }, 80);
     });
   }
   return card;
