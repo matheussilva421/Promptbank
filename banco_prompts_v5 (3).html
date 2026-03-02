@@ -6,6 +6,7 @@
   <title>Banco de Prompts TCE/RN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
 /* ══════════ TOKENS ══════════ */
 :root {
@@ -578,6 +579,15 @@ function load() {
     const r=localStorage.getItem(LS_KEY_V2);
     if(r){ const d=JSON.parse(r); if(d?.version===2&&Array.isArray(d.categories)) { toast("Dados migrados para v5 ✅"); return migrateV2toV3(d); } }
   } catch(e){}
+  // Try embedded data
+  try {
+    const embedded = document.getElementById("embeddedData")?.textContent?.trim();
+    if(embedded){
+      const d=JSON.parse(embedded);
+      if(d?.version===3&&Array.isArray(d.prompts)) return d;
+      if(d?.version===2&&Array.isArray(d.categories)) return migrateV2toV3(d);
+    }
+  } catch(e){}
   return defaultData();
 }
 
@@ -591,11 +601,12 @@ try { save(data); } catch(e){}
 
 // ── State ──
 let S = {
-  cat: "fixadas",
+  cat: "todos",
   subcat: "",         // for analise
   filterFormato: "",
   filterStatus: "",
   filterTags: [],
+  filterAis: [],
   search: "",
   sideSearch: "",
   openPromptId: null,
@@ -611,6 +622,7 @@ document.documentElement.setAttribute("data-theme", getTheme());
 function allPrompts() { return data.prompts||[]; }
 function promptsForCat(cat) {
   if(cat==="todos") return allPrompts();
+  if(cat==="arquivados") return allPrompts().filter(p=>p.status==="arquivado");
   return allPrompts().filter(p => {
     if(cat==="analise") return p.categoria==="analise";
     return p.categoria===cat;
@@ -620,14 +632,15 @@ function filteredPrompts() {
   let ps = promptsForCat(S.cat);
   if(S.cat==="analise"&&S.subcat) ps=ps.filter(p=>p.subcategoria===S.subcat);
   const q=(S.search||S.sideSearch).trim().toLowerCase();
-  if(q) ps=ps.filter(p=>[p.title,p.text,...(p.tags||[]),p.quandoUsar,p.nota].filter(Boolean).join(" ").toLowerCase().includes(q));
+  if(q) ps=ps.filter(p=>[p.title,p.text,...(p.tags||[]),p.quandoUsar,p.note].filter(Boolean).join(" ").toLowerCase().includes(q));
   if(S.filterFormato) ps=ps.filter(p=>p.formato===S.filterFormato);
   if(S.filterStatus) ps=ps.filter(p=>p.status===S.filterStatus);
   if(S.filterTags.length) ps=ps.filter(p=>S.filterTags.every(ft=>(p.tags||[]).map(t=>t.toLowerCase()).includes(ft.toLowerCase())));
+  if(S.filterAis.length) ps=ps.filter(p=>S.filterAis.includes((p.ai||"").toLowerCase()));
   return ps;
 }
 function hasActiveFilters() {
-  return S.search||S.sideSearch||S.filterFormato||S.filterStatus||S.filterTags.length;
+  return S.search||S.sideSearch||S.filterFormato||S.filterStatus||S.filterTags.length||S.filterAis.length;
 }
 
 // ── Render ──
@@ -642,7 +655,7 @@ function renderDock() {
     d.innerHTML=`${cat.icon}<div class="tooltip">${esc(cat.name)} (${count})</div>`;
     d.addEventListener("click",()=>{
       S.cat=cat.id; S.subcat=""; S.sideSearch=""; S.search="";
-      S.filterFormato=""; S.filterStatus=""; S.filterTags=[];
+      S.filterFormato=""; S.filterStatus=""; S.filterTags=[]; S.filterAis=[];
       $("#sideSearch").value=""; $("#globalSearch").value="";
       render();
     });
@@ -724,10 +737,11 @@ function renderSidePanel() {
     const chips3=fl3.querySelector("#aiChips");
     aisUsed.forEach(ai=>{
       const c=document.createElement("span");
-      c.className="chip"+(S.filterTags.includes(ai)?" active":"");
+      const aiKey=ai.toLowerCase();
+      c.className="chip"+(S.filterAis.includes(aiKey)?" active":"");
       c.textContent=ai.charAt(0).toUpperCase()+ai.slice(1);
       c.addEventListener("click",()=>{
-        S.filterTags=S.filterTags.includes(ai)?S.filterTags.filter(t=>t!==ai):[...S.filterTags,ai];
+        S.filterAis=S.filterAis.includes(aiKey)?S.filterAis.filter(t=>t!==aiKey):[...S.filterAis,aiKey];
         renderSidePanel(); renderMain();
       });
       chips3.appendChild(c);
@@ -769,6 +783,7 @@ function renderMain() {
   if(S.filterFormato) addChip(FORMATO_LABELS[S.filterFormato]||S.filterFormato,()=>{ S.filterFormato=""; renderSidePanel(); renderMain(); });
   if(S.filterStatus) addChip(STATUS_LABELS[S.filterStatus]||S.filterStatus,()=>{ S.filterStatus=""; renderSidePanel(); renderMain(); });
   S.filterTags.forEach(t=>addChip("#"+t,()=>{ S.filterTags=S.filterTags.filter(ft=>ft!==t); renderSidePanel(); renderMain(); }));
+  S.filterAis.forEach(ai=>addChip("IA:"+ai.toUpperCase(),()=>{ S.filterAis=S.filterAis.filter(a=>a!==ai); renderSidePanel(); renderMain(); }));
 
   // Clear button visibility
   $("#btnClearFilters").style.display=hasActiveFilters()?"":"none";
@@ -973,7 +988,7 @@ $("#btnNewPrompt").addEventListener("click",()=>openEditor(null));
 $("#globalSearch").addEventListener("input",e=>{ S.search=e.target.value; renderMain(); });
 document.addEventListener("input",e=>{ if(e.target.id==="sideSearch"){ S.sideSearch=e.target.value; renderMain(); } });
 $("#btnClearFilters").addEventListener("click",()=>{
-  S.search=""; S.sideSearch=""; S.filterFormato=""; S.filterStatus=""; S.filterTags=[];
+  S.search=""; S.sideSearch=""; S.filterFormato=""; S.filterStatus=""; S.filterTags=[]; S.filterAis=[];
   $("#globalSearch").value=""; $("#sideSearch").value="";
   renderSidePanel(); renderMain();
 });
@@ -1013,7 +1028,11 @@ document.addEventListener("keydown",e=>{
   const cmd=e.ctrlKey||e.metaKey; const k=e.key.toLowerCase();
   if(k==="escape"){ if($("#editorOverlay").classList.contains("show")) closeEditor(); else closeDrawer(); }
   if(cmd&&k==="enter"){ if($("#editorOverlay").classList.contains("show")){ e.preventDefault(); $("#btnSavePrompt").click(); } }
-  if(cmd&&k==="n"){ e.preventDefault(); openEditor(null); }
+  if(cmd&&k==="n"){
+    const tag=(document.activeElement?.tagName||"").toLowerCase();
+    if(tag==="input"||tag==="textarea"||document.activeElement?.isContentEditable) return;
+    e.preventDefault(); openEditor(null);
+  }
 });
 
 // ── Boot ──
@@ -1029,8 +1048,10 @@ const CFSYNC_URL_KEY = "bancoPrompts_cfSyncUrl";
 const CFSYNC_TOKEN_KEY = "bancoPrompts_cfSyncToken";
 
 let driveState = {
-  url: localStorage.getItem(CFSYNC_URL_KEY) || "",
-  token: localStorage.getItem(CFSYNC_TOKEN_KEY) || "",
+  clientId: localStorage.getItem(GDRIVE_LS_KEY) || "",
+  token: null,
+  fileId: null,
+  tokenClient: null,
   syncTimer: null,
 };
 let cfState = {
@@ -1058,20 +1079,12 @@ function refreshSyncIdleState(){
   driveSyncBtn(hasAnyRemoteConfigured()?"idle":"off", hasAnyRemoteConfigured()?"Sincronizar agora":"Configurar / Sincronizar");
 }
 
-function isConfigured(){ return !!(driveState.url && driveState.token); }
-
-async function cfFetch(method, body){
-  if(!isConfigured()) throw new Error("Sync Cloudflare não configurado");
-  const r = await fetch(driveState.url, {
-    method,
-    headers: {
-      "Authorization": "Bearer " + driveState.token,
-      ...(body ? {"Content-Type":"application/json"} : {})
-    },
-    body: body ? JSON.stringify(body, null, 2) : undefined
-  });
-  return r;
+async function driveFetch(url, init={}){
+  if(!driveState.token) throw new Error("Google Drive não autenticado");
+  const headers={...(init.headers||{}),"Authorization":"Bearer "+driveState.token};
+  return fetch(url,{...init,headers});
 }
+
 async function driveFindFile(){
   const q=encodeURIComponent(`name='${GDRIVE_FNAME}' and trashed=false`);
   const r=await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,modifiedTime)`);
@@ -1264,12 +1277,13 @@ document.getElementById("btnDriveSetupSave").addEventListener("click", async ()=
 });
 
 const _origSave=save;
-window.save=function(d){
+save=function(d){
   _origSave(d);
   if(suppressAutoSync) return;
   if(driveState.token) driveSyncDebounced();
   if(hasCloudflareConfigured()) cfSyncDebounced();
 };
+window.save=save;
 
 refreshSyncIdleState();
 if(hasAnyRemoteConfigured()) window.addEventListener("load",()=>setTimeout(runInitialSyncs,800));
