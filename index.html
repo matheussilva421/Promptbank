@@ -1590,7 +1590,7 @@
     }
 
     function defaultData() {
-      return { version: 3, createdAt: nowISO(), updatedAt: nowISO(), prompts: [] };
+      return { version: 3, createdAt: nowISO(), updatedAt: new Date(0).toISOString(), prompts: [] };
     }
 
     function normalizePromptPayload(d) {
@@ -1635,7 +1635,7 @@
     }
 
     let data = load();
-    try { save(data); } catch (e) { }
+    // try { save(data); } catch (e) { } // Removed immediate save to prevent bumping the initial timestamp
 
     // ── State ──
     let S = {
@@ -2430,13 +2430,22 @@
         const localTime = new Date(data.updatedAt || 0);
         const remoteTime = new Date(remote.updatedAt || 0);
         if (remoteTime > localTime) {
-          if (confirm(`Google Drive tem dados mais recentes (${new Date(remote.updatedAt).toLocaleString("pt-BR")}).
-Importar do Drive?`)) {
-            suppressAutoSync = true;
-            data = remote.version === 3 ? remote : (remote.version === 2 ? migrateV2toV3(remote) : data);
-            save(data); render(); toast("Dados importados do Drive ☁️");
-            suppressAutoSync = false;
+          const remoteDateStr = remote.updatedAt ? new Date(remote.updatedAt).toLocaleString("pt-BR") : "sem data";
+          if (remote.prompts?.length === 0 && data.prompts?.length > 0) {
+            if (!confirm(`⚠️ AVISO CRÍTICO: O Google Drive está ZERADO, mas localmente você tem dados.\nDeseja DELETAR seus dados locais e importar o estado vazio do Drive?\n(Clique em CANCELAR para manter seus dados locais e enviá-los pro Drive).`)) {
+              await driveUpload(data, f.id);
+              return;
+            }
+          } else {
+            if (!confirm(`Google Drive tem dados mais recentes (${remoteDateStr}).\nImportar do Drive?`)) {
+              await driveUpload(data, f.id);
+              return;
+            }
           }
+          suppressAutoSync = true;
+          data = remote.version === 3 ? remote : (remote.version === 2 ? migrateV2toV3(remote) : data);
+          save(data); render(); toast("Dados importados do Drive ☁️");
+          suppressAutoSync = false;
         } else { await driveUpload(data, f.id); }
       } else { const res = await driveUpload(data, null); driveState.fileId = res.id; }
     }
@@ -2489,13 +2498,22 @@ Importar do Drive?`)) {
       const localTime = new Date(data.updatedAt || 0);
       const remoteTime = new Date(remote.updatedAt || 0);
       if (remoteTime > localTime) {
-        if (confirm(`Cloudflare tem dados mais recentes (${remote.updatedAt ? new Date(remote.updatedAt).toLocaleString("pt-BR") : "sem data"}).
-Importar do Cloudflare?`)) {
-          suppressAutoSync = true;
-          data = remote.version === 3 ? remote : migrateV2toV3(remote);
-          save(data); render(); toast("Dados importados do Cloudflare ☁️");
-          suppressAutoSync = false;
+        const remoteDateStr = remote.updatedAt ? new Date(remote.updatedAt).toLocaleString("pt-BR") : "sem data";
+        if (remote.prompts?.length === 0 && data.prompts?.length > 0) {
+          if (!confirm(`⚠️ AVISO CRÍTICO: O Cloudflare está ZERADO (0 prompts), mas seu PC local tem dados.\nDeseja APAGAR seus dados locais e importar o vazio do Cloudflare?\n\n(Clique em CANCELAR para manter seus dados locais e enviá-los pro Cloudflare).`)) {
+            await cfSyncNow();
+            return;
+          }
+        } else {
+          if (!confirm(`Cloudflare tem dados mais recentes (${remoteDateStr}).\nImportar do Cloudflare?`)) {
+            await cfSyncNow();
+            return;
+          }
         }
+        suppressAutoSync = true;
+        data = remote.version === 3 ? remote : migrateV2toV3(remote);
+        save(data); render(); toast("Dados importados do Cloudflare ☁️");
+        suppressAutoSync = false;
       } else { await cfSyncNow(); }
     }
 
