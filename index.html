@@ -2446,8 +2446,18 @@
           data = remote.version === 3 ? remote : (remote.version === 2 ? migrateV2toV3(remote) : data);
           save(data); render(); toast("Dados importados do Drive ☁️");
           suppressAutoSync = false;
-        } else { await driveUpload(data, f.id); }
-      } else { const res = await driveUpload(data, null); driveState.fileId = res.id; }
+        } else {
+          // Só sobe pro Drive se a gente já tem dados locais válidos ou confirmamos a sobrescrita
+          if (data.prompts && data.prompts.length > 0) {
+            await driveUpload(data, f.id);
+          }
+        }
+      } else {
+        if (data.prompts && data.prompts.length > 0) {
+          const res = await driveUpload(data, null);
+          driveState.fileId = res.id;
+        }
+      }
     }
     function driveInitTokenClient(clientId) {
       try { driveState.tokenClient = google.accounts.oauth2.initTokenClient({ client_id: clientId, scope: GDRIVE_SCOPE, callback: () => { } }); return true; }
@@ -2491,7 +2501,12 @@
     async function cfInitialSync() {
       if (!hasCloudflareConfigured()) return;
       const r = await cfFetch("GET");
-      if (r.status === 404) { await cfSyncNow(); return; }
+      if (r.status === 404) {
+        if (data.prompts && data.prompts.length > 0) {
+           await cfSyncNow();
+        }
+        return;
+      }
       if (!r.ok) throw new Error(`Cloudflare GET falhou (${r.status})`);
       const remote = await r.json();
       if (!(remote?.version === 3 || remote?.version === 2)) return;
@@ -2514,7 +2529,11 @@
         data = remote.version === 3 ? remote : migrateV2toV3(remote);
         save(data); render(); toast("Dados importados do Cloudflare ☁️");
         suppressAutoSync = false;
-      } else { await cfSyncNow(); }
+      } else {
+        if (data.prompts && data.prompts.length > 0) {
+           await cfSyncNow();
+        }
+      }
     }
 
     function isGoogleInteractionRequiredError(err) {
