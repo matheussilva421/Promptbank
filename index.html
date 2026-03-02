@@ -678,11 +678,11 @@
       place-items: center;
       flex-shrink: 0;
     }
-    
+
     .prompt-card:hover .card-copy-quick {
       opacity: 1;
     }
-    
+
     .card-copy-quick:hover {
       color: var(--blue);
       border-color: var(--blue);
@@ -1183,7 +1183,7 @@
       transition: all .15s;
       cursor: pointer;
     }
-    
+
     .btn:active {
       transform: scale(0.96);
     }
@@ -1252,10 +1252,17 @@
       white-space: nowrap;
       animation: slideUp .3s ease-out forwards;
     }
-    
+
     @keyframes slideUp {
-      from { transform: translateY(20px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
+      from {
+        transform: translateY(20px);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
     }
 
     @media (max-width: 1024px) {
@@ -1270,6 +1277,7 @@
         grid-template-rows: auto auto 1fr;
         height: 100vh;
       }
+
       .dock {
         flex-direction: row;
         width: 100%;
@@ -1278,27 +1286,34 @@
         border-right: none;
         border-bottom: 1px solid var(--line);
       }
+
       .dock-bottom {
         flex-direction: row;
         margin-top: 0;
         margin-left: auto;
       }
+
       .dock-sep {
         width: 1px;
         height: 28px;
         margin: 0 6px;
       }
-      .dock-item .tooltip, .dock-icon-btn .tooltip {
+
+      .dock-item .tooltip,
+      .dock-icon-btn .tooltip {
         display: none;
       }
+
       .side-panel {
         border-right: none;
         border-bottom: 1px solid var(--line);
         max-height: 200px;
       }
+
       .prompt-grid {
         grid-template-columns: 1fr;
       }
+
       .search-row {
         flex-direction: column;
         align-items: stretch;
@@ -1318,15 +1333,15 @@
       <div id="dockCats"></div>
       <div class="dock-bottom">
         <div class="dock-sep"></div>
-        <div class="dock-icon-btn" id="btnDriveSync" data-state="off">
+        <div class="dock-icon-btn" id="btnDriveSync" data-state="off" title="Configurar / Sincronizar">
           ☁️
           <div class="tooltip" id="driveSyncTooltip">Configurar / Sincronizar</div>
         </div>
         <div class="drive-status-bar" id="driveStatusBar"></div>
-        <div class="dock-icon-btn" id="btnTheme">
+        <div class="dock-icon-btn" id="btnTheme" title="Alternar tema">
           🌗<div class="tooltip">Alternar tema</div>
         </div>
-        <div class="dock-icon-btn" id="btnSettings">⚙️<div class="tooltip">Configurações</div>
+        <div class="dock-icon-btn" id="btnSettings" title="Configurações">⚙️<div class="tooltip">Configurações</div>
         </div>
         <input id="importFile" type="file" accept="application/json" style="display:none;">
       </div>
@@ -1715,8 +1730,8 @@
       return defaultData();
     }
 
-    function save(d) {
-      d.updatedAt = nowISO();
+    function save(d, bumpTime = true) {
+      if (bumpTime) d.updatedAt = nowISO();
       localStorage.setItem(LS_KEY_V3, JSON.stringify(d, null, 2));
     }
 
@@ -2291,7 +2306,7 @@
       toggleSubcatField();
       snapshotEditorInitialValues();
       $("#editorOverlay").classList.add("show");
-      setTimeout(() => $("#e_title").focus(), 50);
+      setTimeout(() => $("#e_title").focus(), 150);
     }
     function editorHasChanges() {
       const fields = ["#e_title", "#e_text", "#e_categoria", "#e_subcategoria", "#e_formato", "#e_status", "#e_ai", "#e_tags", "#e_quando", "#e_nao_quando", "#e_saida", "#e_note"];
@@ -2377,7 +2392,9 @@
     function duplicatePrompt(id) {
       const p = allPrompts().find(x => x.id === id); if (!p) return;
       const copy = { ...p, id: uid(), title: "[Cópia] " + p.title, status: "teste", createdAt: nowISO(), updatedAt: nowISO() };
-      data.prompts.push(copy); save(data); render(); toast("Prompt duplicado 🔁");
+      data.prompts.push(copy); save(data); render();
+      toast("Prompt duplicado 🔁");
+      openEditor(copy.id);
     }
 
     // ── New prompt button ──
@@ -2536,7 +2553,7 @@
           }
           suppressAutoSync = true;
           data = remote.version === 3 ? remote : (remote.version === 2 ? migrateV2toV3(remote) : data);
-          save(data); render(); toast("Dados importados do Drive ☁️");
+          save(data, false); render(); toast("Dados importados do Drive ☁️");
           suppressAutoSync = false;
         } else {
           // Só sobe pro Drive se a gente já tem dados locais válidos ou confirmamos a sobrescrita
@@ -2595,7 +2612,7 @@
       const r = await cfFetch("GET");
       if (r.status === 404) {
         if (data.prompts && data.prompts.length > 0) {
-           await cfSyncNow();
+          await cfSyncNow();
         }
         return;
       }
@@ -2619,11 +2636,11 @@
         }
         suppressAutoSync = true;
         data = remote.version === 3 ? remote : migrateV2toV3(remote);
-        save(data); render(); toast("Dados importados do Cloudflare ☁️");
+        save(data, false); render(); toast("Dados importados do Cloudflare ☁️");
         suppressAutoSync = false;
       } else {
         if (data.prompts && data.prompts.length > 0) {
-           await cfSyncNow();
+          await cfSyncNow();
         }
       }
     }
@@ -2738,8 +2755,8 @@
     });
 
     const _origSave = save;
-    save = function (d) {
-      _origSave(d);
+    save = function (d, bumpTime = true) {
+      _origSave(d, bumpTime);
       if (suppressAutoSync) return;
       if (driveState.token) driveSyncDebounced();
       if (hasCloudflareConfigured()) cfSyncDebounced();
