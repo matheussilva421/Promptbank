@@ -40,6 +40,14 @@
 2. Abra diretamente no navegador
 3. Seus prompts são salvos automaticamente no `localStorage` do navegador
 
+
+### Uso com Cloudflare Pages + Workers KV (recomendado para hosting web)
+1. Publique este projeto no **Cloudflare Pages**
+2. Crie um **Cloudflare Worker** para expor endpoint de sincronização (`GET/POST /sync`)
+3. Armazene o JSON no **Workers KV**
+4. Configure URL/token do Worker no app
+5. Guia completo em [`docs/cloudflare-pages-kv.md`](docs/cloudflare-pages-kv.md)
+
 ### Uso com Google Drive (sincronização na nuvem)
 1. Acesse [console.cloud.google.com](https://console.cloud.google.com) e crie um projeto
 2. Vá em **APIs & Services → Library** e ative a **Google Drive API**

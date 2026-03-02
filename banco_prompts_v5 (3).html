@@ -6,8 +6,7 @@
   <title>Banco de Prompts TCE/RN</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <style>
+    <style>
 /* ══════════ TOKENS ══════════ */
 :root {
   --bg0:#07090f; --bg1:#0c0f1c; --bg2:#111628; --bg3:#171d32; --bg4:#1d253d;
@@ -215,7 +214,7 @@ a{color:inherit;text-decoration:none;}
       <div class="dock-sep"></div>
       <div class="dock-icon-btn" id="btnDriveSync" data-state="off">
         ☁️
-        <div class="tooltip" id="driveSyncTooltip">Conectar Google Drive</div>
+        <div class="tooltip" id="driveSyncTooltip">Configurar Cloudflare Sync</div>
       </div>
       <div class="drive-status-bar" id="driveStatusBar"></div>
       <div class="dock-icon-btn" id="btnTheme">
@@ -377,26 +376,20 @@ a{color:inherit;text-decoration:none;}
   </div>
 </div>
 
-<!-- ══ DRIVE SETUP MODAL ══ -->
+<!-- ══ CLOUDFLARE SYNC SETUP MODAL ══ -->
 <div class="modal-overlay" id="driveSetupModal">
   <div class="drive-modal">
-    <h2>☁️ Sincronizar com Google Drive</h2>
-    <p>Seus prompts serão salvos em <code style="font-family:var(--mono);font-size:12px;background:var(--bg3);padding:1px 5px;border-radius:4px;">banco_prompts.json</code> no seu Drive.<br><br>
-    Precisa de um <strong>Client ID</strong> do Google Cloud:<br>
-    1. <a href="https://console.cloud.google.com/" target="_blank">console.cloud.google.com</a> → Crie um projeto<br>
-    2. APIs &amp; Services → Library → ative <strong>Google Drive API</strong><br>
-    3. Credentials → Create → <strong>OAuth 2.0 Client ID</strong> → Web Application<br>
-    4. Authorized JS origins → adicione sua URL (ex: <code style="font-family:var(--mono);font-size:11px">https://seusite.netlify.app</code>)<br>
-    5. OAuth consent screen → Test users → adicione seu e-mail<br>
-    6. Cole o Client ID abaixo.
-    </p>
-    <label for="driveClientIdInput">Client ID</label>
-    <input type="text" id="driveClientIdInput" placeholder="xxxxxx.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+    <h2>☁️ Sincronizar com Cloudflare KV</h2>
+    <p>Configure seu endpoint de sincronização no Worker (ex.: <code style="font-family:var(--mono);font-size:11px">https://seu-worker.workers.dev/sync</code>) e o token Bearer para salvar/carregar o JSON remoto no KV.</p>
+    <label for="cfSyncUrlInput">URL do Worker (/sync)</label>
+    <input type="text" id="cfSyncUrlInput" placeholder="https://seu-worker.workers.dev/sync" autocomplete="off" spellcheck="false">
+    <label for="cfSyncTokenInput" style="margin-top:12px;">Token (Bearer)</label>
+    <input type="text" id="cfSyncTokenInput" placeholder="seu-token" autocomplete="off" spellcheck="false">
     <div id="driveSetupError" style="color:var(--red);font-size:12px;margin-top:8px;min-height:18px;"></div>
     <div class="drive-modal-actions">
       <button class="btn ghost" id="btnDriveSetupClose">Cancelar</button>
       <button class="btn danger" id="btnDriveSetupDisconnect" style="display:none;">Desconectar</button>
-      <button class="btn primary" id="btnDriveSetupSave">Conectar</button>
+      <button class="btn primary" id="btnDriveSetupSave">Salvar</button>
     </div>
   </div>
 </div>
@@ -1002,182 +995,160 @@ document.addEventListener("keydown",e=>{
 render();
 </script>
 
-<!-- ══ GOOGLE DRIVE SYNC ══ -->
+<!-- ══ CLOUDFLARE KV SYNC ══ -->
 <script>
-const GDRIVE_LS_KEY = "bancoPrompts_driveClientId";
-const GDRIVE_SCOPE  = "https://www.googleapis.com/auth/drive.file";
-const GDRIVE_FNAME  = "banco_prompts.json";
+const CFSYNC_URL_KEY = "bancoPrompts_cfSyncUrl";
+const CFSYNC_TOKEN_KEY = "bancoPrompts_cfSyncToken";
 
 let driveState = {
-  clientId: localStorage.getItem(GDRIVE_LS_KEY)||"",
-  token: null, fileId: null, tokenClient: null, syncTimer: null,
+  url: localStorage.getItem(CFSYNC_URL_KEY) || "",
+  token: localStorage.getItem(CFSYNC_TOKEN_KEY) || "",
+  syncTimer: null,
 };
 
-function driveSyncBtn(state,tip){
-  const btn=document.getElementById("btnDriveSync");
-  const bar=document.getElementById("driveStatusBar");
-  btn.dataset.state=state;
-  if(tip) document.getElementById("driveSyncTooltip").textContent=tip;
-  if(state==="syncing") bar.textContent="⟳";
-  else if(state==="ok") bar.textContent="✔";
-  else if(state==="error") bar.textContent="✗";
-  else bar.textContent="";
+function driveSyncBtn(state, tip){
+  const btn = document.getElementById("btnDriveSync");
+  const bar = document.getElementById("driveStatusBar");
+  btn.dataset.state = state;
+  if(tip) document.getElementById("driveSyncTooltip").textContent = tip;
+  if(state === "syncing") bar.textContent = "⟳";
+  else if(state === "ok") bar.textContent = "✔";
+  else if(state === "error") bar.textContent = "✗";
+  else bar.textContent = "";
 }
 
-async function driveFetch(url,opts={}){
-  if(!driveState.token) throw new Error("Sem token");
-  const r=await fetch(url,{...opts,headers:{Authorization:"Bearer "+driveState.token,...(opts.headers||{})}});
-  if(r.status===401){ driveState.token=null; throw new Error("Token expirado"); }
+function isConfigured(){ return !!(driveState.url && driveState.token); }
+
+async function cfFetch(method, body){
+  if(!isConfigured()) throw new Error("Sync Cloudflare não configurado");
+  const r = await fetch(driveState.url, {
+    method,
+    headers: {
+      "Authorization": "Bearer " + driveState.token,
+      ...(body ? {"Content-Type":"application/json"} : {})
+    },
+    body: body ? JSON.stringify(body, null, 2) : undefined
+  });
   return r;
-}
-async function driveFindFile(){
-  const q=encodeURIComponent(`name='${GDRIVE_FNAME}' and trashed=false`);
-  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,modifiedTime)`);
-  const js=await r.json(); return js.files?.[0]||null;
-}
-async function driveDownload(fileId){
-  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
-  return await r.json();
-}
-async function driveUpload(content,fileId){
-  const body=JSON.stringify(content,null,2);
-  const meta=JSON.stringify({name:GDRIVE_FNAME,mimeType:"application/json"});
-  const boundary="bprompts_bnd";
-  const multipart=`--${boundary}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
-  const url=fileId?`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`:`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
-  const r=await driveFetch(url,{method:fileId?"PATCH":"POST",headers:{"Content-Type":`multipart/related; boundary="${boundary}"`},body:multipart});
-  return await r.json();
 }
 
 async function driveSyncNow(){
-  if(!driveState.token) return;
+  if(!isConfigured()) return;
   try{
-    driveSyncBtn("syncing","Sincronizando…");
-    if(!driveState.fileId){ const f=await driveFindFile(); driveState.fileId=f?.id||null; }
-    const res=await driveUpload(data,driveState.fileId);
-    if(res.id) driveState.fileId=res.id;
-    driveSyncBtn("ok","Drive sincronizado ✔");
-    setTimeout(()=>driveSyncBtn("idle","Sincronizar agora"),3000);
-  }catch(e){ driveSyncBtn("error","Erro — clique para tentar"); console.error("[Drive]",e); }
+    driveSyncBtn("syncing", "Enviando para Cloudflare…");
+    const r = await cfFetch("POST", data);
+    if(!r.ok) throw new Error(`Falha no POST /sync (${r.status})`);
+    driveSyncBtn("ok", "Cloudflare sincronizado ✔");
+    setTimeout(()=>driveSyncBtn("idle", "Sincronizar agora"), 2500);
+  }catch(e){
+    driveSyncBtn("error", "Erro — clique para tentar");
+    console.error("[Cloudflare Sync]", e);
+    toast("Falha ao sincronizar com Cloudflare");
+  }
 }
 
-function driveSyncDebounced(){ clearTimeout(driveState.syncTimer); driveState.syncTimer=setTimeout(driveSyncNow,2000); }
+function driveSyncDebounced(){
+  clearTimeout(driveState.syncTimer);
+  driveState.syncTimer = setTimeout(driveSyncNow, 1800);
+}
 
 async function driveInitialSync(){
-  driveSyncBtn("syncing","Conectando ao Drive…");
+  if(!isConfigured()) return;
+  driveSyncBtn("syncing", "Conectando ao Cloudflare…");
   try{
-    const f=await driveFindFile();
-    if(f){
-      driveState.fileId=f.id;
-      const remote=await driveDownload(f.id);
-      const localTime=new Date(data.updatedAt||0);
-      const remoteTime=new Date(remote.updatedAt||0);
-      if(remoteTime>localTime){
-        if(confirm(`Drive tem dados mais recentes (${new Date(remote.updatedAt).toLocaleString("pt-BR")}).\nImportar do Drive?`)){
-          data=remote.version===3?remote:(remote.version===2?migrateV2toV3(remote):data);
-          save(data); render(); toast("Dados importados do Drive ☁️");
-        }
-      } else { await driveUpload(data,f.id); toast("Drive sincronizado ✔"); }
-    } else {
-      const res=await driveUpload(data,null); driveState.fileId=res.id; toast("Arquivo criado no Drive ☁️");
+    const r = await cfFetch("GET");
+    if(r.status === 404){
+      await driveSyncNow();
+      toast("Primeiro backup criado no Cloudflare ☁️");
+      return;
     }
-    driveSyncBtn("idle","Sincronizar agora");
-  }catch(e){ driveSyncBtn("error","Erro na sincronização"); console.error("[Drive]",e); }
+    if(!r.ok) throw new Error(`Falha no GET /sync (${r.status})`);
+
+    const remote = await r.json();
+    if(!(remote && (remote.version===3 || remote.version===2))){
+      throw new Error("Formato remoto inválido");
+    }
+
+    const localTime = new Date(data.updatedAt || 0);
+    const remoteTime = new Date(remote.updatedAt || 0);
+
+    if(remoteTime > localTime){
+      if(confirm(`Cloudflare tem dados mais recentes (${remote.updatedAt ? new Date(remote.updatedAt).toLocaleString("pt-BR") : "sem data"}).
+Importar agora?`)){
+        data = remote.version===3 ? remote : migrateV2toV3(remote);
+        save(data); render();
+        toast("Dados importados do Cloudflare ☁️");
+      }
+    }else{
+      await driveSyncNow();
+    }
+    driveSyncBtn("idle", "Sincronizar agora");
+  }catch(e){
+    driveSyncBtn("error", "Erro na sincronização");
+    console.error("[Cloudflare Sync]", e);
+  }
 }
 
-function driveInitTokenClient(clientId){
-  try{ driveState.tokenClient=google.accounts.oauth2.initTokenClient({client_id:clientId,scope:GDRIVE_SCOPE,callback:()=>{}}); return true; }
-  catch(e){ console.error("[Drive]",e); return false; }
-}
-
-document.getElementById("btnDriveSync").addEventListener("click",()=>{
-  const state=document.getElementById("btnDriveSync").dataset.state;
-  if(state==="off"||!driveState.clientId){ openDriveSetupModal(); return; }
-  if(!driveState.token){
-    if(!driveState.tokenClient) driveInitTokenClient(driveState.clientId);
-    driveSyncBtn("syncing","Aguardando login…");
-    driveState.tokenClient.callback=async(resp)=>{
-      if(resp.error){ driveSyncBtn("idle","Clique ☁️ para conectar"); return; }
-      driveState.token=resp.access_token;
-      setTimeout(()=>{ driveState.token=null; driveSyncBtn("idle","Clique ☁️ para reconectar"); },((resp.expires_in||3600)-60)*1000);
-      await driveInitialSync();
-    };
-    driveState.tokenClient.requestAccessToken({prompt:""});
+document.getElementById("btnDriveSync").addEventListener("click", ()=>{
+  const state = document.getElementById("btnDriveSync").dataset.state;
+  if(state === "off" || !isConfigured()){
+    openDriveSetupModal();
     return;
   }
   driveSyncNow();
 });
 
 function openDriveSetupModal(){
-  document.getElementById("driveSetupError").textContent="";
-  document.getElementById("driveClientIdInput").value=driveState.clientId||"";
-  document.getElementById("btnDriveSetupDisconnect").style.display=driveState.clientId?"inline-flex":"none";
+  document.getElementById("driveSetupError").textContent = "";
+  document.getElementById("cfSyncUrlInput").value = driveState.url || "";
+  document.getElementById("cfSyncTokenInput").value = driveState.token || "";
+  document.getElementById("btnDriveSetupDisconnect").style.display = isConfigured() ? "inline-flex" : "none";
   document.getElementById("driveSetupModal").classList.add("show");
-  setTimeout(()=>document.getElementById("driveClientIdInput").focus(),50);
+  setTimeout(()=>document.getElementById("cfSyncUrlInput").focus(), 50);
 }
+
 function closeDriveSetupModal(){ document.getElementById("driveSetupModal").classList.remove("show"); }
-document.getElementById("btnDriveSetupClose").addEventListener("click",closeDriveSetupModal);
-document.getElementById("driveSetupModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeDriveSetupModal(); });
-document.getElementById("btnDriveSetupDisconnect").addEventListener("click",()=>{
-  if(!confirm("Desconectar do Drive? Os dados locais não serão apagados.")) return;
-  driveState={...driveState,clientId:"",token:null,fileId:null,tokenClient:null};
-  localStorage.removeItem(GDRIVE_LS_KEY);
-  driveSyncBtn("off","Conectar Google Drive");
-  closeDriveSetupModal(); toast("Drive desconectado 🔌");
-});
-document.getElementById("btnDriveSetupSave").addEventListener("click",()=>{
-  const clientId=document.getElementById("driveClientIdInput").value.trim();
-  const err=document.getElementById("driveSetupError");
-  if(!clientId){ err.textContent="Cole o Client ID do Google Cloud."; return; }
-  if(!clientId.includes(".apps.googleusercontent.com")){ err.textContent="Formato inválido."; return; }
-  err.textContent="";
-  driveState.clientId=clientId;
-  localStorage.setItem(GDRIVE_LS_KEY,clientId);
+
+document.getElementById("btnDriveSetupClose").addEventListener("click", closeDriveSetupModal);
+document.getElementById("driveSetupModal").addEventListener("click", e=>{ if(e.target===e.currentTarget) closeDriveSetupModal(); });
+
+document.getElementById("btnDriveSetupDisconnect").addEventListener("click", ()=>{
+  if(!confirm("Desconectar Cloudflare Sync? Os dados locais não serão apagados.")) return;
+  driveState = {...driveState, url:"", token:""};
+  localStorage.removeItem(CFSYNC_URL_KEY);
+  localStorage.removeItem(CFSYNC_TOKEN_KEY);
+  driveSyncBtn("off", "Configurar Cloudflare Sync");
   closeDriveSetupModal();
-  // Connect
-  if(typeof google==="undefined"||!google.accounts){ setTimeout(()=>connectDrive(clientId),800); return; }
-  connectDrive(clientId);
+  toast("Cloudflare desconectado 🔌");
 });
-function connectDrive(clientId){
-  if(typeof google==="undefined"||!google.accounts){ toast("Aguardando Google…"); setTimeout(()=>connectDrive(clientId),800); return; }
-  driveInitTokenClient(clientId);
-  driveSyncBtn("idle","Sincronizar agora");
-  // Trigger auth
-  document.getElementById("btnDriveSync").click();
-}
 
-// Patch save to also sync
-const _origSave=save;
-window.save=function(d){ _origSave(d); if(driveState.token) driveSyncDebounced(); };
+document.getElementById("btnDriveSetupSave").addEventListener("click", async ()=>{
+  const url = document.getElementById("cfSyncUrlInput").value.trim();
+  const token = document.getElementById("cfSyncTokenInput").value.trim();
+  const err = document.getElementById("driveSetupError");
 
-// Auto-connect on load
-if(driveState.clientId){
-  window.addEventListener("load",()=>{
-    setTimeout(()=>{
-      if(typeof google==="undefined"||!google.accounts){ setTimeout(()=>{ if(driveState.clientId) document.getElementById("btnDriveSync").dataset.state="idle"; },1500); return; }
-      driveInitTokenClient(driveState.clientId);
-      driveSyncBtn("syncing","Conectando…");
-      const onToken=async(resp)=>{
-        if(resp.error){
-          if(resp.error==="interaction_required"||resp.error==="user_cancelled"){
-            driveState.tokenClient.callback=async(resp2)=>{
-              if(resp2.error){ driveSyncBtn("idle","Clique ☁️ para conectar"); return; }
-              driveState.token=resp2.access_token;
-              setTimeout(()=>{ driveState.token=null; driveSyncBtn("idle","Clique ☁️ para reconectar"); },((resp2.expires_in||3600)-60)*1000);
-              await driveInitialSync();
-            };
-            driveState.tokenClient.requestAccessToken({prompt:""});
-          } else { driveSyncBtn("idle","Clique ☁️ para conectar"); }
-          return;
-        }
-        driveState.token=resp.access_token;
-        setTimeout(()=>{ driveState.token=null; driveSyncBtn("idle","Clique ☁️ para reconectar"); },((resp.expires_in||3600)-60)*1000);
-        await driveInitialSync();
-      };
-      driveState.tokenClient.callback=onToken;
-      driveState.tokenClient.requestAccessToken({prompt:"none"});
-    },800);
-  });
+  if(!url){ err.textContent = "Informe a URL do Worker."; return; }
+  if(!/^https:\/\//i.test(url)){ err.textContent = "A URL deve começar com https://"; return; }
+  if(!token){ err.textContent = "Informe o token Bearer."; return; }
+
+  err.textContent = "";
+  driveState.url = url;
+  driveState.token = token;
+  localStorage.setItem(CFSYNC_URL_KEY, url);
+  localStorage.setItem(CFSYNC_TOKEN_KEY, token);
+  closeDriveSetupModal();
+  driveSyncBtn("idle", "Sincronizar agora");
+  await driveInitialSync();
+});
+
+const _origSave = save;
+window.save = function(d){ _origSave(d); if(isConfigured()) driveSyncDebounced(); };
+
+if(isConfigured()){
+  driveSyncBtn("idle", "Sincronizar agora");
+  window.addEventListener("load", ()=> setTimeout(driveInitialSync, 600));
+}else{
+  driveSyncBtn("off", "Configurar Cloudflare Sync");
 }
 </script>
 </body>
