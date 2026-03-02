@@ -55,7 +55,6 @@
       --t1: rgba(12, 20, 55, .92);
       --t2: rgba(12, 20, 55, .60);
       --t3: rgba(12, 20, 55, .35);
-      --blue-g: rgba(20, 178, 228, .10);
       --sh1: 0 2px 8px rgba(0, 0, 0, .08);
       --sh2: 0 8px 28px rgba(0, 0, 0, .10);
       --sh3: 0 20px 60px rgba(0, 0, 0, .14);
@@ -1302,6 +1301,35 @@
       border-radius: var(--r1);
     }
 
+    /* ── CUSTOM ALERT / CONFIRM MODALS ── */
+    #customAlertOverlay {
+      z-index: 1000;
+    }
+
+    .custom-alert-box {
+      width: min(360px, 90vw);
+      text-align: center;
+      padding: 24px;
+    }
+
+    .custom-alert-box h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .custom-alert-box p {
+      font-size: 13px;
+      color: var(--t2);
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .custom-alert-actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
     /* ── TOASTS ── */
     #toasts {
       position: fixed;
@@ -1390,22 +1418,64 @@
       }
 
       .dock-item,
-      .dock-icon-btn {
+      .dock-icon-btn,
+      .nav-item {
         flex-direction: column;
-        width: auto;
-        height: auto;
-        padding: 4px 10px;
-        gap: 2px;
-        border-radius: 8px;
+        font-size: 10px;
+        min-width: 60px;
+        padding: 6px 0;
+      }
+
+      .dock-icon-btn {
         font-size: 18px;
+        margin-bottom: 2px;
       }
 
       .dock-label {
         display: block;
+        font-size: 10px;
+        margin-top: 2px;
+        opacity: 0.8;
+      }
+
+      .main-search {
+        margin: 10px;
+      }
+
+      .mobile-only {
+        display: block !important;
+      }
+
+      .desktop-only {
+        display: none !important;
       }
 
       .dock-item .tooltip,
       .dock-icon-btn .tooltip {
+        display: none;
+      }
+
+      .dock-bottom {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--bg1);
+        border-top: 1px solid var(--line);
+        flex-direction: row;
+        justify-content: space-around;
+        align-items: center;
+        padding: 5px 0 10px;
+        z-index: 200;
+        margin: 0;
+      }
+
+      .app {
+        grid-template-rows: auto 1fr;
+        padding-bottom: 56px;
+      }
+
+      .dock-sep {
         display: none;
       }
 
@@ -1450,6 +1520,14 @@
         <div class="dock-icon-btn" id="btnShortcuts" title="Atalhos">
           ⌨️<div class="dock-label">Atalhos</div>
           <div class="tooltip">Atalhos (Ctrl+?)</div>
+        </div>
+        <div class="dock-icon-btn" id="btnThemePrimary" title="Mudar Cor Destaque">
+          🎨<div class="dock-label">Cor</div>
+          <div class="tooltip">Cor Destaque</div>
+        </div>
+        <div class="dock-icon-btn" id="btnStats" title="Estatísticas">
+          📊<div class="dock-label">Stats</div>
+          <div class="tooltip">Estatísticas</div>
         </div>
         <div class="dock-icon-btn" id="btnSettings" title="Configurações">⚙️<div class="dock-label">Ajustes</div>
           <div class="tooltip">Configurações</div>
@@ -1526,9 +1604,12 @@
           <label for="e_title">Título *</label>
           <input type="text" id="e_title" placeholder="Título do prompt">
         </div>
-        <div class="field">
+        <div class="field" style="position:relative;">
           <label for="e_text">Texto do Prompt *</label>
           <textarea id="e_text" placeholder="Cole ou escreva o prompt aqui..."></textarea>
+          <div id="e_text_counter"
+            style="position:absolute;bottom:10px;right:10px;font-size:10px;color:var(--t3);pointer-events:none;font-family:var(--mono);background:var(--bg3);padding:2px 6px;border-radius:4px;border:1px solid var(--line2);">
+            0 chars | ~0 tokens</div>
         </div>
         <div class="field-row">
           <div class="field">
@@ -1629,6 +1710,34 @@
       <div class="drive-modal-actions">
         <button class="btn ghost" id="btnCancelDelete">Cancelar</button>
         <button class="btn danger" id="btnConfirmDelete">Excluir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SHARED CUSTOM ALERT/CONFIRM MODAL ══ -->
+  <div class="modal-overlay" id="customAlertOverlay">
+    <div class="drive-modal custom-alert-box">
+      <h3 id="customAlertTitle">Atenção</h3>
+      <p id="customAlertMessage">Mensagem aqui</p>
+      <div class="custom-alert-actions">
+        <button class="btn ghost" id="btnCustomAlertCancel" style="display:none;">Cancelar</button>
+        <button class="btn primary" id="btnCustomAlertConfirm">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ STATS MODAL ══ -->
+  <div class="modal-overlay" id="statsModal">
+    <div class="drive-modal" style="width:min(450px,95vw);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+        <h2 style="margin:0; font-size:18px;">📊 Estatísticas do Banco</h2>
+        <button class="btn icon" id="btnCloseStats">✕</button>
+      </div>
+      <div id="statsContent" style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom:16px;">
+        <!-- Computed stats go here -->
+      </div>
+      <div class="drive-modal-actions">
+        <button class="btn ghost" id="btnStatsOk">Fechar</button>
       </div>
     </div>
   </div>
@@ -1759,11 +1868,17 @@
     const parseSimpleMarkdown = (text) => {
       if (!text) return "";
       let html = esc(text);
+      // Headings
+      html = html.replace(/^###\s+(.+)$/gm, '<h3 style="margin-top:1em;margin-bottom:.5em;">$1</h3>');
+      html = html.replace(/^##\s+(.+)$/gm, '<h2 style="margin-top:1em;margin-bottom:.5em;">$1</h2>');
+      html = html.replace(/^#\s+(.+)$/gm, '<h1 style="margin-top:1em;margin-bottom:.5em;">$1</h1>');
       // Bold
       html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
       // Italic
-      html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-      html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+      html = html.replace(/\*([^\n*]+)\*/g, '<em>$1</em>');
+      html = html.replace(/_([^\n_]+)_/g, '<em>$1</em>');
+      // Code inline
+      html = html.replace(/`([^`\n]+)`/g, '<code style="background:var(--bg3);padding:2px 4px;border-radius:4px;">$1</code>');
       return html;
     };
 
@@ -1772,6 +1887,39 @@
       $("#toasts").appendChild(el);
       setTimeout(() => el.style.opacity = "0", dur - 300);
       setTimeout(() => el.remove(), dur);
+    }
+
+    // Custom Modals to replace alert/confirm
+    function customConfirm(title, message) {
+      return new Promise(resolve => {
+        $("#customAlertTitle").textContent = title;
+        $("#customAlertMessage").textContent = message;
+        $("#btnCustomAlertCancel").style.display = "inline-flex";
+        $("#customAlertOverlay").classList.add("show");
+
+        const cleanup = () => {
+          $("#btnCustomAlertConfirm").onclick = null;
+          $("#btnCustomAlertCancel").onclick = null;
+          $("#customAlertOverlay").classList.remove("show");
+        };
+        $("#btnCustomAlertConfirm").onclick = () => { cleanup(); resolve(true); };
+        $("#btnCustomAlertCancel").onclick = () => { cleanup(); resolve(false); };
+      });
+    }
+
+    function customAlert(title, message) {
+      return new Promise(resolve => {
+        $("#customAlertTitle").textContent = title;
+        $("#customAlertMessage").textContent = message;
+        $("#btnCustomAlertCancel").style.display = "none";
+        $("#customAlertOverlay").classList.add("show");
+
+        const cleanup = () => {
+          $("#btnCustomAlertConfirm").onclick = null;
+          $("#customAlertOverlay").classList.remove("show");
+        };
+        $("#btnCustomAlertConfirm").onclick = () => { cleanup(); resolve(true); };
+      });
     }
 
     // ── Migration: v2 → v3 ──
@@ -1933,7 +2081,15 @@
     function save(d, bumpTime = true, syncFlush = false) {
       if (bumpTime) d.updatedAt = nowISO();
 
-      const doSave = () => localStorage.setItem(LS_KEY_V3, JSON.stringify(d, null, 2));
+      const doSave = () => {
+        try {
+          localStorage.setItem(LS_KEY_V3, JSON.stringify(d, null, 2));
+          window.dispatchEvent(new Event("localDataSaved"));
+        } catch (err) {
+          console.error("Erro localStorage", err);
+          toast("Erro ao salvar! Armazenamento cheio?");
+        }
+      };
 
       if (syncFlush) {
         clearTimeout(_lsTimer);
@@ -1963,7 +2119,9 @@
       catOrder: CATS.map(c => c.id),
       manualOrder: {},
       draggingPromptId: null,
-      suppressNextCardClick: false
+      suppressNextCardClick: false,
+      lastDeletedPrompt: null,
+      undoTimeout: null
     };
 
     const UI_STATE_KEY = "bancoPrompts_uiState_v2";
@@ -2043,10 +2201,42 @@
       saveManualOrder();
     }
 
-    // ── Theme ──
+    // ── Theme & Colors ──
     const getTheme = () => localStorage.getItem("bpTheme") === "light" ? "light" : "dark";
     const setTheme = t => { localStorage.setItem("bpTheme", t); document.documentElement.setAttribute("data-theme", t); };
     document.documentElement.setAttribute("data-theme", getTheme());
+
+    const COLORS = [
+      { hex: "#14B2E4", name: "Azul Nativo" },
+      { hex: "#8A2BE2", name: "Roxo" },
+      { hex: "#FF4D5E", name: "Rosa" },
+      { hex: "#34d399", name: "Verde" },
+      { hex: "#F5A623", name: "Laranja" }
+    ];
+    let currentColorIndex = parseInt(localStorage.getItem("bpColorIdx") || "0", 10);
+    if (isNaN(currentColorIndex) || currentColorIndex >= COLORS.length) currentColorIndex = 0;
+
+    function applyColor(idx) {
+      currentColorIndex = idx;
+      localStorage.setItem("bpColorIdx", idx);
+      const c = COLORS[idx].hex;
+      document.documentElement.style.setProperty("--blue", c);
+
+      // Calculate a slightly darker version for hover state manually (simplified)
+      let r = parseInt(c.slice(1, 3), 16), g = parseInt(c.slice(3, 5), 16), b = parseInt(c.slice(5, 7), 16);
+      document.documentElement.style.setProperty("--blue2", `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`);
+
+      const theme = getTheme();
+      const oppacity = theme === 'light' ? '0.1' : '0.15';
+      document.documentElement.style.setProperty("--blue-g", `rgba(${r}, ${g}, ${b}, ${oppacity})`);
+    }
+    applyColor(currentColorIndex);
+
+    $("#btnThemePrimary").addEventListener("click", () => {
+      let nIdx = (currentColorIndex + 1) % COLORS.length;
+      applyColor(nIdx);
+      toast("Cor: " + COLORS[nIdx].name + " 🎨");
+    });
 
     // ── Selectors ──
     function allPrompts() { return (data.prompts || []).filter(p => !p.deletedAt); }
@@ -2063,7 +2253,13 @@
       let ps = promptsForCat(S.cat);
       if (S.cat === "analise" && S.subcat) ps = ps.filter(p => p.subcategoria === S.subcat);
       const q = (S.search || S.sideSearch).trim().toLowerCase();
-      if (q) ps = ps.filter(p => [p.title, p.text, ...(p.tags || []), p.quandoUsar, p.note].filter(Boolean).join(" ").toLowerCase().includes(q));
+      if (q) {
+        const words = q.split(/\s+/).filter(Boolean);
+        ps = ps.filter(p => {
+          const content = [p.title, p.text, ...(p.tags || []), p.quandoUsar, p.note].filter(Boolean).join(" ").toLowerCase();
+          return words.every(w => content.includes(w));
+        });
+      }
       if (S.filterFormato) ps = ps.filter(p => p.formato === S.filterFormato);
       if (S.filterStatus) ps = ps.filter(p => p.status === S.filterStatus);
       if (S.filterTags.length) ps = ps.filter(p => S.filterTags.every(ft => (p.tags || []).map(t => t.toLowerCase()).includes(ft.toLowerCase())));
@@ -2362,7 +2558,33 @@
         return;
       }
 
-      ps.forEach(p => grid.appendChild(buildCard(p)));
+      if (S.cat === "analise" && !S.subcat && S.promptSort !== "manual" && !S.search && !S.sideSearch && S.filterTags.length === 0 && !S.filterFormato && !S.filterStatus) {
+        const grouped = {};
+        ps.forEach(p => {
+          const sc = p.subcategoria || "outros";
+          if (!grouped[sc]) grouped[sc] = [];
+          grouped[sc].push(p);
+        });
+
+        SUBCATS.forEach(sc => {
+          if (grouped[sc.id] && grouped[sc.id].length) {
+            const sep = document.createElement("div");
+            sep.style.cssText = "grid-column: 1 / -1; padding-bottom: 4px; border-bottom: 1px dashed var(--line2); margin-top: 12px; font-size: 13px; font-weight: 700; color: var(--blue); letter-spacing: 0.5px; text-transform: uppercase;";
+            sep.textContent = "— " + sc.name + " —";
+            grid.appendChild(sep);
+            grouped[sc.id].forEach(p => grid.appendChild(buildCard(p)));
+          }
+        });
+        if (grouped["outros"] && grouped["outros"].length) {
+          const sep = document.createElement("div");
+          sep.style.cssText = "grid-column: 1 / -1; padding-bottom: 4px; border-bottom: 1px dashed var(--line2); margin-top: 12px; font-size: 13px; font-weight: 700; color: var(--t3); letter-spacing: 0.5px; text-transform: uppercase;";
+          sep.textContent = "— Outros / Sem Eixo —";
+          grid.appendChild(sep);
+          grouped["outros"].forEach(p => grid.appendChild(buildCard(p)));
+        }
+      } else {
+        ps.forEach(p => grid.appendChild(buildCard(p)));
+      }
 
       if (S.promptSort === "manual") {
         grid.ondragover = e => {
@@ -2424,13 +2646,23 @@
       const cat = CATS.find(c => c.id === p.categoria);
       const subcat = SUBCATS.find(s => s.id === p.subcategoria);
 
+      let syncStatusHtml = "";
+      if (typeof hasAnyRemoteConfigured !== "undefined" && hasAnyRemoteConfigured()) {
+        const lastSync = localStorage.getItem("bancoPrompts_lastSyncTime") || "0";
+        const needsSync = !p.deletedAt && (!lastSync || new Date(p.updatedAt) > new Date(lastSync));
+        syncStatusHtml = needsSync ? `<span title="Alterações locais pendentes de sincronização" style="font-size:10px;margin-left:auto;">🟡</span>` : `<span title="Sincronizado" style="font-size:10px;margin-left:auto;opacity:0.5;">🟢</span>`;
+      }
+
       let cardTitle = esc(p.title);
       const query = (S.search || S.sideSearch).trim();
       if (query) {
         try {
-          const escQuery = esc(query); // Procura pela string já escapada para não quebrar entidades HTML
-          const r = new RegExp(`(${escQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi");
-          cardTitle = cardTitle.replace(r, "<mark>$1</mark>");
+          const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+          words.forEach(w => {
+            const safeW = esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const r = new RegExp(`(?<!&[a-z]{1,5};)(${safeW})(?![^<]*>|[^&]*;)`, "gi");
+            cardTitle = cardTitle.replace(r, "<mark>$1</mark>");
+          });
         } catch (e) { }
       }
 
@@ -2450,6 +2682,7 @@
       <span class="badge ${statusClass}">${esc(statusLabel)}</span>
       ${formatoLabel ? `<span class="badge badge-formato">${esc(formatoLabel)}</span>` : ""}
       ${subcat ? `<span class="badge badge-formato">${esc(subcat.name)}</span>` : ""}
+      ${syncStatusHtml}
     </div>
     ${p.quandoUsar ? `<div class="card-when" style="color:var(--t3);font-size:11.5px;">Quando usar: ${esc(p.quandoUsar)}</div>` : ""}
     ${visibleTags.length ? `<div class="card-tags">${visibleTags.map(t => `<span class="tag">#${esc(t)}</span>`).join("")}${(p.tags || []).length > 4 ? `<span class="tag">+${(p.tags || []).length - 4}</span>` : ""}</div>` : ""}
@@ -2537,8 +2770,12 @@
       $("#drawerOverlay").classList.remove("open");
       S.openPromptId = null;
       window.history.replaceState(null, "", window.location.pathname);
+      $("#promptDrawer").classList.remove("expanded");
     }
     $("#btnCloseDrawer").addEventListener("click", closeDrawer);
+    $("#btnExpandDrawer").addEventListener("click", () => {
+      $("#promptDrawer").classList.toggle("expanded");
+    });
     $("#drawerOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeDrawer(); });
 
     // ── Editor ──
@@ -2579,8 +2816,15 @@
       toggleSubcatField();
       snapshotEditorInitialValues();
       $("#editorOverlay").classList.add("show");
+      updateTextCounter();
       setTimeout(() => $("#e_title").focus(), 150);
     }
+
+    function updateTextCounter() {
+      const len = ($("#e_text").value || "").length;
+      $("#e_text_counter").textContent = `${len} chars | ~${Math.ceil(len / 4)} tokens`;
+    }
+    $("#e_text").addEventListener("input", updateTextCounter);
     function editorHasChanges() {
       if (_editorPinned !== (S.editingId ? !!allPrompts().find(x => x.id === S.editingId)?.pinned : false)) return true;
       const fields = ["#e_title", "#e_text", "#e_categoria", "#e_subcategoria", "#e_formato", "#e_status", "#e_ai", "#e_tags", "#e_quando", "#e_nao_quando", "#e_saida", "#e_note"];
@@ -2589,11 +2833,19 @@
         return (el?.value || "") !== (el?.dataset.initial || "");
       });
     }
-    function closeEditor(force = false) {
-      if (!force && editorHasChanges() && !confirm("Descartar alterações não salvas?")) return;
+    async function closeEditor(force = false) {
+      if (!force && editorHasChanges()) {
+        const discard = await customConfirm("Atenção", "Existem alterações não salvas. Deseja descartar as mudanças?");
+        if (!discard) return;
+      }
       $("#editorOverlay").classList.remove("show");
       S.editingId = null;
       _editorPinned = false; // Reset pin state
+      const btnPin = $("#btnPinEditor");
+      if (btnPin) {
+        btnPin.textContent = "☆";
+        btnPin.style.color = "";
+      }
     }
     $("#btnCloseEditor").addEventListener("click", closeEditor);
     $("#btnCancelEditor").addEventListener("click", closeEditor);
@@ -2675,16 +2927,84 @@
     $("#btnConfirmDelete").addEventListener("click", () => {
       const idx = data.prompts.findIndex(x => x.id === S.editingId);
       if (idx >= 0) {
+        S.lastDeletedPrompt = { ...data.prompts[idx] };
         data.prompts[idx].deletedAt = nowISO();
         data.prompts[idx].updatedAt = nowISO();
+
+        clearTimeout(S.undoTimeout);
+        S.undoTimeout = setTimeout(() => { S.lastDeletedPrompt = null; }, 30000);
       }
       save(data); closeEditor(true); render(); toast("Prompt excluído 🗑️");
+
+      if (S.lastDeletedPrompt) {
+        const t = $("#toasts").lastChild;
+        if (t) {
+          const btnUndo = document.createElement("button");
+          btnUndo.textContent = "Desfazer";
+          btnUndo.style.cssText = "margin-left:8px;background:none;border:none;color:var(--blue);cursor:pointer;font-weight:600;text-decoration:underline;";
+          btnUndo.onclick = () => {
+            const rIdx = data.prompts.findIndex(x => x.id === S.lastDeletedPrompt.id);
+            if (rIdx >= 0) {
+              data.prompts[rIdx].deletedAt = null;
+              data.prompts[rIdx].updatedAt = nowISO();
+            }
+            save(data); render();
+            t.remove();
+            S.lastDeletedPrompt = null;
+            toast("Exclusão desfeita ↩️");
+          };
+          t.appendChild(btnUndo);
+        }
+      }
+
       $("#deleteModal").classList.remove("show");
     });
 
     $("#btnShortcuts").addEventListener("click", () => $("#shortcutsModal").classList.add("show"));
     $("#btnCloseShortcuts").addEventListener("click", () => $("#shortcutsModal").classList.remove("show"));
     $("#shortcutsModal").addEventListener("click", e => { if (e.target === e.currentTarget) $("#shortcutsModal").classList.remove("show"); });
+
+    // ── STATS DASHBOARD ──
+    function computeStats() {
+      const ps = allPrompts();
+      const total = ps.length;
+      let totalCopied = 0;
+      let mostUsedAi = {};
+      let tagsCount = {};
+      let catCount = {};
+      ps.forEach(p => {
+        if (p.lastCopiedAt) totalCopied++;
+        if (p.ai) mostUsedAi[p.ai] = (mostUsedAi[p.ai] || 0) + 1;
+        if (p.categoria) catCount[p.categoria] = (catCount[p.categoria] || 0) + 1;
+        (p.tags || []).forEach(t => tagsCount[t] = (tagsCount[t] || 0) + 1);
+      });
+      const topAi = Object.entries(mostUsedAi).sort((a, b) => b[1] - a[1])[0] || ["Nenhuma", 0];
+      const topCatObj = Object.entries(catCount).sort((a, b) => b[1] - a[1])[0];
+      const topCat = topCatObj ? (CATS.find(c => c.id === topCatObj[0])?.name || "Outros") : "Nenhum";
+      const topTag = Object.entries(tagsCount).sort((a, b) => b[1] - a[1])[0] || ["Nenhuma", 0];
+
+      const statBox = (label, val) => `<div style="background:var(--bg3);padding:12px;border-radius:var(--r1);text-align:center;">
+          <div style="font-size:24px;font-weight:700;color:var(--t1);margin-bottom:4px;">${val}</div>
+          <div style="font-size:12px;color:var(--t2);text-transform:uppercase;letter-spacing:0.5px;">${label}</div>
+        </div>`;
+
+      $("#statsContent").innerHTML = `
+        ${statBox("Total Prompts", total)}
+        ${statBox("Eixo Produtivo", topCat)}
+        ${statBox("IA Favorita", topAi[0].toUpperCase())}
+        ${statBox("Tag Popular", topTag[0] !== "Nenhuma" ? "#" + topTag[0] : "-")}
+        <div style="grid-column:1/-1;margin-top:8px;font-size:13px;text-align:center;color:var(--t3);">
+          ⭐ Fixados: ${ps.filter(x => x.pinned).length} &nbsp;|&nbsp; 📋 Copiados: ${totalCopied}
+        </div>
+      `;
+    }
+    $("#btnStats").addEventListener("click", () => {
+      computeStats();
+      $("#statsModal").classList.add("show");
+    });
+    const closeStats = () => $("#statsModal").classList.remove("show");
+    $("#btnCloseStats").addEventListener("click", closeStats);
+    $("#btnStatsOk").addEventListener("click", closeStats);
 
     // ── Actions ──
     let pendingCopyText = "";
@@ -2715,6 +3035,11 @@
     }
 
     function doCopy(text) {
+      const p = allPrompts().find(x => x.text === text || (x.text && text.includes(x.text.slice(0, 20))));
+      if (p) {
+        p.lastCopiedAt = nowISO();
+        save(data, false);
+      }
       navigator.clipboard.writeText(text).then(() => toast("Copiado ✅")).catch(() => toast("Erro ao copiar ❌"));
     }
 
@@ -2781,22 +3106,33 @@
     $("#btnImport").addEventListener("click", () => $("#importFile").click());
     $("#importFile").addEventListener("change", async e => {
       const f = e.target.files?.[0]; if (!f) return;
+      if (f.size > 5 * 1024 * 1024) { await customAlert("Erro", "Arquivo muito grande (max 5MB)."); e.target.value = ""; return; }
       try {
         const d = JSON.parse(await f.text());
         if (d?.version === 3 && Array.isArray(d.prompts)) {
-          if (!confirm("Importar vai substituir os dados atuais. Continuar?")) return;
+          const proceed = await customConfirm("Atenção", "Importar vai substituir os dados atuais. Deseja continuar?");
+          if (!proceed) return;
           data = d; save(data); render(); toast("Importado ✅");
         } else if (d?.version === 2 && Array.isArray(d.categories)) {
-          if (!confirm("Arquivo v2 detectado. Migrar e combinar com os dados atuais?")) return;
+          const migrate = await customConfirm("Migração v2", "Arquivo v2 detectado. Migrar e combinar com os dados atuais?");
+          if (!migrate) return;
           const mig = migrateV2toV3(d); data = mergeData(data, mig); save(data); render(); toast("Migrado e combinado ✅");
-        } else { alert("Formato não reconhecido."); }
-      } catch (err) { alert("Falha: " + err.message); } finally { e.target.value = ""; }
+        } else { await customAlert("Atenção", "Formato de arquivo não reconhecido."); }
+      } catch (err) { await customAlert("Falha ao Importar", "Erro: " + err.message); } finally { e.target.value = ""; }
     });
 
     // ── Keyboard ──
-    document.addEventListener("keydown", e => {
+    document.addEventListener("keydown", async e => {
       const cmd = e.ctrlKey || e.metaKey; const k = e.key.toLowerCase();
-      if (k === "escape") { if ($("#editorOverlay").classList.contains("show")) closeEditor(); else closeDrawer(); }
+      if (k === "escape") {
+        if ($("#customAlertOverlay").classList.contains("show")) {
+          $("#btnCustomAlertCancel")?.click();
+        } else if ($("#editorOverlay").classList.contains("show")) {
+          await closeEditor();
+        } else {
+          closeDrawer();
+        }
+      }
       if (cmd && k === "enter") { if ($("#editorOverlay").classList.contains("show")) { e.preventDefault(); $("#btnSavePrompt").click(); } }
       if (cmd && k === "k") {
         e.preventDefault();
@@ -2818,25 +3154,28 @@
     loadManualOrder();
     loadSubcatOrder();
     loadUIState();
-    render();
 
     // Deep Linking intercept
-    function handleHash() {
+    function handleHash(isBoot = false) {
       const hash = window.location.hash.substring(1);
       if (hash) {
         const p = allPrompts().find(x => x.id === hash);
         if (p) {
           S.cat = (p.status === "arquivado" || p.categoria === "arquivados") ? "arquivados" : (EDITABLE_CATS.some(c => c.id === p.categoria) ? p.categoria : "analise");
           saveUIState();
-          render();
-          openDrawer(hash);
+          if (!isBoot) render();
+          setTimeout(() => openDrawer(hash), 50);
+          return true;
         } else {
           window.history.replaceState(null, "", window.location.pathname);
         }
       }
+      return false;
     }
-    window.addEventListener("hashchange", handleHash);
-    setTimeout(handleHash, 100);
+    window.addEventListener("hashchange", () => handleHash(false));
+
+    handleHash(true);
+    render();
   </script>
 
   <!-- ══ GOOGLE DRIVE + CLOUDFLARE SYNC ══ -->
@@ -2869,6 +3208,7 @@
       const btn = document.getElementById("btnDriveSync");
       const bar = document.getElementById("driveStatusBar");
       btn.dataset.state = state;
+      btn.style.pointerEvents = state === "syncing" ? "none" : "";
       if (tip) document.getElementById("driveSyncTooltip").textContent = tip;
       if (state === "syncing") bar.textContent = "⟳";
       else if (state === "ok") bar.textContent = "✔";
@@ -2882,7 +3222,12 @@
     async function driveFetch(url, init = {}) {
       if (!driveState.token) throw new Error("Google Drive não autenticado");
       const headers = { ...(init.headers || {}), "Authorization": "Bearer " + driveState.token };
-      return fetch(url, { ...init, headers });
+      const response = await fetch(url, { ...init, headers });
+      if (response.status === 401 || response.status === 403) {
+        customAlert("Autenticação Falhou", "Sessão do Google Drive expirada. Faça login novamente.").then(() => { if (typeof openDriveSetupModal === "function") openDriveSetupModal(); else $("#btnSettings").click(); });
+        throw new Error("HTTP 401: Google Drive Sessão Expirada");
+      }
+      return response;
     }
 
     async function driveFindFile() {
@@ -2919,6 +3264,7 @@
           } else {
             await driveSyncNow();
           }
+          localStorage.setItem("bancoPrompts_lastSyncTime", nowISO());
           driveSyncBtn("ok", "Salvo ✔");
           setTimeout(refreshSyncIdleState, 2500);
         } catch (e) {
@@ -2935,10 +3281,14 @@
         const remote = await driveDownload(f.id);
         const localTime = new Date(data.updatedAt || 0);
         const remoteTime = new Date(remote.updatedAt || 0);
-        if (remoteTime > localTime) {
+        if (remoteTime >= localTime) {
           const remoteDateStr = remote.updatedAt ? new Date(remote.updatedAt).toLocaleString("pt-BR") : "sem data";
           if (remote.prompts?.length === 0 && data.prompts?.length > 0) {
-            if (!confirm(`⚠️ AVISO CRÍTICO: O Google Drive está ZERADO, mas localmente você tem dados.\nDeseja DELETAR seus dados locais e importar o estado vazio do Drive?\n(Clique em CANCELAR para manter seus dados locais e uni-los ao Drive).`)) {
+            const deleteConfirm = await customConfirm(
+              "AVISO CRÍTICO",
+              "O Google Drive está ZERADO, mas localmente você tem dados.\nDeseja DELETAR seus dados locais e importar o estado vazio do Drive?\n\n(Clique em Cancelar para manter seus dados locais e uni-los ao Drive)"
+            );
+            if (!deleteConfirm) {
               await driveUpload(data, f.id);
               return;
             }
@@ -2996,7 +3346,12 @@
     }
 
     async function cfFetch(method, body) {
+      if (!cfState.url || !cfState.url.startsWith("http")) throw new Error("Cloudflare URL não configurada ou inválida");
       const r = await fetch(cfState.url, { method, headers: { "Authorization": "Bearer " + cfState.token, ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body, null, 2) : undefined });
+      if (r.status === 401 || r.status === 403) {
+        customAlert("Autenticação Falhou", "Token do Cloudflare inválido ou sessão expirada.").then(() => $("#btnSettings").click());
+        throw new Error("HTTP 401: Cloudflare Token inválido");
+      }
       return r;
     }
     async function cfSyncNow() {
@@ -3010,6 +3365,7 @@
       cfState.syncTimer = setTimeout(async () => {
         try {
           await cfSyncNow();
+          localStorage.setItem("bancoPrompts_lastSyncTime", nowISO());
           driveSyncBtn("ok", "Salvo ✔");
           setTimeout(refreshSyncIdleState, 2500);
         } catch (e) {
@@ -3028,14 +3384,25 @@
         return;
       }
       if (!r.ok) throw new Error(`Cloudflare GET falhou (${r.status})`);
-      const remote = await r.json();
+
+      let remote;
+      try {
+        remote = await r.json();
+      } catch (e) {
+        throw new Error("Cloudflare retornou um formato inválido");
+      }
       if (!(remote?.version === 3 || remote?.version === 2)) return;
+
       const localTime = new Date(data.updatedAt || 0);
       const remoteTime = new Date(remote.updatedAt || 0);
-      if (remoteTime > localTime) {
+      if (remoteTime >= localTime) {
         const remoteDateStr = remote.updatedAt ? new Date(remote.updatedAt).toLocaleString("pt-BR") : "sem data";
         if (remote.prompts?.length === 0 && data.prompts?.length > 0) {
-          if (!confirm(`⚠️ AVISO CRÍTICO: O Cloudflare está ZERADO (0 prompts), mas seu PC local tem dados.\nDeseja APAGAR seus dados locais e importar o vazio do Cloudflare?\n\n(Clique em CANCELAR para manter seus dados locais e uni-los ao Cloudflare).`)) {
+          const cfConfirm = await customConfirm(
+            "AVISO CRÍTICO",
+            "O Cloudflare está ZERADO (0 prompts), mas seu PC local tem dados.\nDeseja APAGAR seus dados locais e importar o estado vazio do Cloudflare?\n\n(Clique em Cancelar para manter seus dados locais e uni-los ao Cloudflare)"
+          );
+          if (!cfConfirm) {
             await cfSyncNow();
             return;
           }
@@ -3166,14 +3533,11 @@
       if (hasAnyRemoteConfigured()) await runInitialSyncs();
     });
 
-    const _origSave = save;
-    save = function (d, bumpTime = true) {
-      _origSave(d, bumpTime);
+    window.addEventListener("localDataSaved", () => {
       if (suppressAutoSync) return;
       if (hasGoogleConfigured()) driveSyncDebounced();
       if (hasCloudflareConfigured()) cfSyncDebounced();
-    };
-    window.save = save;
+    });
 
     refreshSyncIdleState();
     if (hasAnyRemoteConfigured()) window.addEventListener("load", () => setTimeout(runInitialSyncs, 800));
