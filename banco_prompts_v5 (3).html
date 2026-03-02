@@ -1263,6 +1263,11 @@ Importar do Cloudflare?`)){
   } else { await cfSyncNow(); }
 }
 
+function isGoogleInteractionRequiredError(err){
+  const msg=(err?.message||""+err).toLowerCase();
+  return msg.includes("google requer interação") || msg.includes("interaction_required") || msg.includes("login_required") || msg.includes("consent_required");
+}
+
 async function runAllSyncNow(){
   if(!hasAnyRemoteConfigured()){ openDriveSetupModal(); return; }
   driveSyncBtn("syncing","Sincronizando Google/Cloudflare…");
@@ -1290,7 +1295,14 @@ async function runInitialSyncs(){
   let okCount=0, failCount=0;
   if(hasGoogleConfigured()){
     try{ await ensureGoogleReadyAndSync(true); okCount++; }
-    catch(e){ failCount++; console.error("[Sync inicial][Google]",e); }
+    catch(e){
+      if(isGoogleInteractionRequiredError(e)){
+        console.warn("[Sync inicial][Google] interação do usuário necessária.");
+      }else{
+        failCount++;
+        console.error("[Sync inicial][Google]",e);
+      }
+    }
   }
   if(hasCloudflareConfigured()){
     try{ await cfInitialSync(); okCount++; }
