@@ -166,6 +166,13 @@
       color: #fff;
     }
 
+    @-webkit-keyframes spin {
+      to {
+        -webkit-transform: rotate(360deg);
+        transform: rotate(360deg);
+      }
+    }
+
     @keyframes spin {
       to {
         transform: rotate(360deg);
@@ -229,6 +236,15 @@
       opacity: 1;
     }
 
+    .dock-label {
+      display: none;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--t2);
+      margin-top: 2px;
+      white-space: nowrap;
+    }
+
     .dock-bottom {
       margin-top: auto;
       display: flex;
@@ -286,6 +302,7 @@
 
     #btnDriveSync[data-state="syncing"] {
       color: var(--amber);
+      -webkit-animation: pulse .8s ease-in-out infinite alternate;
       animation: pulse .8s ease-in-out infinite alternate;
     }
 
@@ -300,6 +317,16 @@
     #btnDriveSync[data-state="off"] {
       color: var(--t3);
       opacity: .5;
+    }
+
+    @-webkit-keyframes pulse {
+      from {
+        opacity: .5;
+      }
+
+      to {
+        opacity: 1;
+      }
     }
 
     @keyframes pulse {
@@ -625,6 +652,14 @@
       letter-spacing: .04em;
     }
 
+    .result-counter {
+      font-size: 12px;
+      color: var(--t3);
+      margin-left: auto;
+      /* Empurra pra direita da sort bar */
+      font-weight: 500;
+    }
+
     .sort-chip {
       border: 1px solid var(--line2);
       background: var(--bg2);
@@ -789,6 +824,7 @@
       line-height: 1.45;
       display: -webkit-box;
       -webkit-line-clamp: 2;
+      line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
@@ -1250,7 +1286,22 @@
       box-shadow: var(--sh2);
       transition: opacity .3s, transform .3s;
       white-space: nowrap;
+      -webkit-animation: slideUp .3s ease-out forwards;
       animation: slideUp .3s ease-out forwards;
+    }
+
+    @-webkit-keyframes slideUp {
+      from {
+        -webkit-transform: translateY(20px);
+        transform: translateY(20px);
+        opacity: 0;
+      }
+
+      to {
+        -webkit-transform: translateY(0);
+        transform: translateY(0);
+        opacity: 1;
+      }
     }
 
     @keyframes slideUp {
@@ -1299,6 +1350,21 @@
         margin: 0 6px;
       }
 
+      .dock-item,
+      .dock-icon-btn {
+        flex-direction: column;
+        width: auto;
+        height: auto;
+        padding: 4px 10px;
+        gap: 2px;
+        border-radius: 8px;
+        font-size: 18px;
+      }
+
+      .dock-label {
+        display: block;
+      }
+
       .dock-item .tooltip,
       .dock-icon-btn .tooltip {
         display: none;
@@ -1334,14 +1400,20 @@
       <div class="dock-bottom">
         <div class="dock-sep"></div>
         <div class="dock-icon-btn" id="btnDriveSync" data-state="off" title="Configurar / Sincronizar">
-          ☁️
+          ☁️<div class="dock-label">Sync</div>
           <div class="tooltip" id="driveSyncTooltip">Configurar / Sincronizar</div>
         </div>
         <div class="drive-status-bar" id="driveStatusBar"></div>
         <div class="dock-icon-btn" id="btnTheme" title="Alternar tema">
-          🌗<div class="tooltip">Alternar tema</div>
+          🌗<div class="dock-label">Tema</div>
+          <div class="tooltip">Alternar tema</div>
         </div>
-        <div class="dock-icon-btn" id="btnSettings" title="Configurações">⚙️<div class="tooltip">Configurações</div>
+        <div class="dock-icon-btn" id="btnShortcuts" title="Atalhos">
+          ⌨️<div class="dock-label">Atalhos</div>
+          <div class="tooltip">Atalhos (Ctrl+?)</div>
+        </div>
+        <div class="dock-icon-btn" id="btnSettings" title="Configurações">⚙️<div class="dock-label">Ajustes</div>
+          <div class="tooltip">Configurações</div>
         </div>
         <input id="importFile" type="file" accept="application/json" style="display:none;">
       </div>
@@ -1502,6 +1574,42 @@
       <div class="drive-modal-actions" style="margin-top:20px;">
         <button class="btn ghost" id="btnCancelVarModal">Cancelar</button>
         <button class="btn primary" id="btnConfirmVarModal">📋 Copiar Preenchido</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ CONFIRM DELETE MODAL ══ -->
+  <div class="modal-overlay" id="deleteModal">
+    <div class="drive-modal" style="width:min(400px,90vw);">
+      <h2>🗑️ Excluir Prompt</h2>
+      <p style="margin-bottom:16px;">Tem certeza que deseja excluir este prompt permanentemente? Não é possível
+        desfazer.</p>
+      <div class="drive-modal-actions">
+        <button class="btn ghost" id="btnCancelDelete">Cancelar</button>
+        <button class="btn danger" id="btnConfirmDelete">Excluir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SHORTCUTS MODAL ══ -->
+  <div class="modal-overlay" id="shortcutsModal">
+    <div class="drive-modal" style="width:min(450px,95vw);">
+      <h2>⌨️ Atalhos de Teclado</h2>
+      <p style="margin-bottom:16px;">Ganhe agilidade usando atalhos.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="drawer-info-row"><span class="drawer-info-label">Ctrl + N</span><span class="drawer-info-val">Novo
+            Prompt</span></div>
+        <div class="drawer-info-row"><span class="drawer-info-label">Ctrl + K</span><span
+            class="drawer-info-val">Pesquisa Global</span></div>
+        <div class="drawer-info-row"><span class="drawer-info-label">Ctrl + Enter</span><span
+            class="drawer-info-val">Salvar Prompt (no editor)</span></div>
+        <div class="drawer-info-row"><span class="drawer-info-label">Esc</span><span class="drawer-info-val">Fechar
+            janela/modal ativa</span></div>
+        <div class="drawer-info-row"><span class="drawer-info-label">Ctrl + /</span><span
+            class="drawer-info-val">Mostrar atalhos</span></div>
+      </div>
+      <div class="drive-modal-actions" style="margin-top:20px;">
+        <button class="btn primary" id="btnCloseShortcuts">Entendi</button>
       </div>
     </div>
   </div>
@@ -2103,6 +2211,13 @@
         b.addEventListener("click", () => { S.promptSort = o.id; saveUIState(); renderMain(); });
         bar.appendChild(b);
       });
+
+      const counter = document.createElement("div");
+      counter.className = "result-counter";
+      const total = promptsForCat(S.cat).length;
+      const current = filteredPromptsBase().length;
+      counter.textContent = `Mostrando ${current} de ${total} prompts`;
+      bar.appendChild(counter);
     }
 
     function renderMain() {
@@ -2413,10 +2528,23 @@
     });
 
     $("#btnDeletePrompt").addEventListener("click", () => {
-      if (!confirm("Excluir este prompt? Não dá pra desfazer.")) return;
+      $("#deleteModal").classList.add("show");
+    });
+    $("#btnCancelDelete").addEventListener("click", () => {
+      $("#deleteModal").classList.remove("show");
+    });
+    $("#deleteModal").addEventListener("click", e => {
+      if (e.target === e.currentTarget) $("#deleteModal").classList.remove("show");
+    });
+    $("#btnConfirmDelete").addEventListener("click", () => {
       data.prompts = data.prompts.filter(x => x.id !== S.editingId);
       save(data); closeEditor(true); render(); toast("Prompt excluído 🗑️");
+      $("#deleteModal").classList.remove("show");
     });
+
+    $("#btnShortcuts").addEventListener("click", () => $("#shortcutsModal").classList.add("show"));
+    $("#btnCloseShortcuts").addEventListener("click", () => $("#shortcutsModal").classList.remove("show"));
+    $("#shortcutsModal").addEventListener("click", e => { if (e.target === e.currentTarget) $("#shortcutsModal").classList.remove("show"); });
 
     // ── Actions ──
     let pendingCopyText = "";
@@ -2513,8 +2641,8 @@
           if (!confirm("Importar vai substituir os dados atuais. Continuar?")) return;
           data = d; save(data); render(); toast("Importado ✅");
         } else if (d?.version === 2 && Array.isArray(d.categories)) {
-          if (!confirm("Arquivo v2 detectado. Migrar e importar? Isso substitui os dados atuais.")) return;
-          data = migrateV2toV3(d); save(data); render(); toast("Migrado e importado ✅");
+          if (!confirm("Arquivo v2 detectado. Migrar e combinar com os dados atuais?")) return;
+          const mig = migrateV2toV3(d); data = mergeData(data, mig); save(data); render(); toast("Migrado e combinado ✅");
         } else { alert("Formato não reconhecido."); }
       } catch (err) { alert("Falha: " + err.message); } finally { e.target.value = ""; }
     });
@@ -2532,6 +2660,10 @@
         const tag = (document.activeElement?.tagName || "").toLowerCase();
         if (tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable) return;
         e.preventDefault(); openEditor(null);
+      }
+      if (cmd && k === "/") {
+        e.preventDefault();
+        $("#shortcutsModal").classList.add("show");
       }
     });
 
