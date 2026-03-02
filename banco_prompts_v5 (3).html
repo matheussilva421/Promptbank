@@ -237,8 +237,8 @@ a{color:inherit;text-decoration:none;}
   <aside class="side-panel">
     <div class="panel-head">
       <div class="panel-cat-title">
-        <span class="panel-cat-icon" id="panelCatIcon">📌</span>
-        <span class="panel-cat-name" id="panelCatName">Fixadas</span>
+        <span class="panel-cat-icon" id="panelCatIcon">🗂️</span>
+        <span class="panel-cat-name" id="panelCatName">Todos os Prompts</span>
         <span class="panel-cat-count" id="panelCatCount">0</span>
       </div>
       <div class="panel-search">
@@ -434,6 +434,8 @@ const LS_KEY_V2 = "bancoPrompts_v2";
 const CATS = [
   { id:"todos",       name:"Todos os Prompts",   icon:"🗂️", desc:"Todos os prompts em um lugar" },
   { id:"analise",     name:"Análise por Eixo",   icon:"⚡", desc:"Análise detalhada por eixo" },
+  { id:"triagem",     name:"Triagem",             icon:"🧭", desc:"Prompts para triagem e leitura inicial" },
+  { id:"diligencias", name:"Diligências",         icon:"📬", desc:"Reanálises e pós-diligência" },
   { id:"geral",       name:"Análise",             icon:"🏛️", desc:"Análise geral de processos" },
   { id:"informacao",  name:"Informação Técnica",  icon:"📝", desc:"Templates e prompts para redação de IT" },
   { id:"especiais",   name:"Casos Especiais",     icon:"🚨", desc:"Cenários específicos e exceções" },
@@ -460,7 +462,8 @@ const $ = (s,r=document) => r.querySelector(s);
 const uid = () => Math.random().toString(16).slice(2)+"-"+Date.now().toString(16);
 const nowISO = () => new Date().toISOString();
 const esc = s => String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
-const parseTags = s => (s||"").split(",").map(t=>t.trim()).filter(Boolean);
+const normalizeTag = t => (t||"").trim().toLowerCase();
+const parseTags = s => [...new Set((s||"").split(",").map(normalizeTag).filter(Boolean))];
 const fmt = iso => { try{ return new Date(iso).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}); }catch(e){ return "—"; }};
 const norm = t => { if(!t) return ""; return t.replace(/\r\n/g,"\n").replace(/\r/g,"\n").trim(); };
 
@@ -613,6 +616,22 @@ let S = {
   editingId: null,
 };
 
+const UI_STATE_KEY = "bancoPrompts_uiState_v1";
+
+function saveUIState(){
+  localStorage.setItem(UI_STATE_KEY, JSON.stringify({ cat: S.cat, subcat: S.subcat }));
+}
+
+function loadUIState(){
+  try{
+    const raw = localStorage.getItem(UI_STATE_KEY);
+    if(!raw) return;
+    const st = JSON.parse(raw);
+    if(st?.cat && CATS.some(c=>c.id===st.cat)) S.cat = st.cat;
+    if(st?.subcat && SUBCATS.some(sc=>sc.id===st.subcat)) S.subcat = st.subcat;
+  }catch(e){}
+}
+
 // ── Theme ──
 const getTheme = () => localStorage.getItem("bpTheme")==="light"?"light":"dark";
 const setTheme = t => { localStorage.setItem("bpTheme",t); document.documentElement.setAttribute("data-theme",t); };
@@ -622,7 +641,7 @@ document.documentElement.setAttribute("data-theme", getTheme());
 function allPrompts() { return data.prompts||[]; }
 function promptsForCat(cat) {
   if(cat==="todos") return allPrompts();
-  if(cat==="arquivados") return allPrompts().filter(p=>p.status==="arquivado");
+  if(cat==="arquivados") return allPrompts().filter(p=>p.status==="arquivado" || p.categoria==="arquivados");
   return allPrompts().filter(p => {
     if(cat==="analise") return p.categoria==="analise";
     return p.categoria===cat;
@@ -637,6 +656,7 @@ function filteredPrompts() {
   if(S.filterStatus) ps=ps.filter(p=>p.status===S.filterStatus);
   if(S.filterTags.length) ps=ps.filter(p=>S.filterTags.every(ft=>(p.tags||[]).map(t=>t.toLowerCase()).includes(ft.toLowerCase())));
   if(S.filterAis.length) ps=ps.filter(p=>S.filterAis.includes((p.ai||"").toLowerCase()));
+  ps=ps.slice().sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0));
   return ps;
 }
 function hasActiveFilters() {
@@ -657,6 +677,7 @@ function renderDock() {
       S.cat=cat.id; S.subcat=""; S.sideSearch=""; S.search="";
       S.filterFormato=""; S.filterStatus=""; S.filterTags=[]; S.filterAis=[];
       $("#sideSearch").value=""; $("#globalSearch").value="";
+      saveUIState();
       render();
     });
     el.appendChild(d);
@@ -681,7 +702,7 @@ function renderSidePanel() {
     allItem.className="subcat-item"+(S.subcat===""?" active":"");
     const allCount=promptsForCat("analise").length;
     allItem.innerHTML=`<span class="subcat-item-name">🏛️ Todos os Eixos</span><span class="subcat-count">${allCount}</span>`;
-    allItem.addEventListener("click",()=>{ S.subcat=""; renderSidePanel(); renderMain(); });
+    allItem.addEventListener("click",()=>{ S.subcat=""; saveUIState(); renderSidePanel(); renderMain(); });
     nav.appendChild(allItem);
     
     SUBCATS.forEach(sc=>{
@@ -689,7 +710,7 @@ function renderSidePanel() {
       const item=document.createElement("div");
       item.className="subcat-item"+(S.subcat===sc.id?" active":"");
       item.innerHTML=`<span class="subcat-item-name">${esc(sc.name)}</span><span class="subcat-count">${count}</span>`;
-      item.addEventListener("click",()=>{ S.subcat=sc.id; renderSidePanel(); renderMain(); });
+      item.addEventListener("click",()=>{ S.subcat=sc.id; saveUIState(); renderSidePanel(); renderMain(); });
       nav.appendChild(item);
     });
     body.appendChild(nav);
@@ -920,13 +941,40 @@ function openEditor(id) {
   $("#e_nao_quando").value=p?.naoUsarQuando||"";
   $("#e_saida").value=p?.saidaEsperada||"";
   $("#e_note").value=p?.note||"";
+  toggleSubcatField();
+  snapshotEditorInitialValues();
   $("#editorOverlay").classList.add("show");
   setTimeout(()=>$("#e_title").focus(),50);
 }
-function closeEditor(){ $("#editorOverlay").classList.remove("show"); S.editingId=null; }
+function editorHasChanges(){
+  const fields=["#e_title","#e_text","#e_categoria","#e_subcategoria","#e_formato","#e_status","#e_ai","#e_tags","#e_quando","#e_nao_quando","#e_saida","#e_note"];
+  return fields.some(sel=>{
+    const el=$(sel);
+    return (el?.value||"") !== (el?.dataset.initial||"");
+  });
+}
+function closeEditor(force=false){
+  if(!force && editorHasChanges() && !confirm("Descartar alterações não salvas?")) return;
+  $("#editorOverlay").classList.remove("show"); S.editingId=null;
+}
 $("#btnCloseEditor").addEventListener("click",closeEditor);
 $("#btnCancelEditor").addEventListener("click",closeEditor);
 $("#editorOverlay").addEventListener("click",e=>{ if(e.target===e.currentTarget) closeEditor(); });
+$("#e_categoria").addEventListener("change",toggleSubcatField);
+
+function toggleSubcatField(){
+  const field = $("#e_subcategoria")?.closest(".field");
+  const isAnalise = $("#e_categoria")?.value === "analise";
+  if(field) field.style.display = isAnalise ? "" : "none";
+  if(!isAnalise) $("#e_subcategoria").value = "";
+}
+
+function snapshotEditorInitialValues(){
+  ["#e_title","#e_text","#e_categoria","#e_subcategoria","#e_formato","#e_status","#e_ai","#e_tags","#e_quando","#e_nao_quando","#e_saida","#e_note"].forEach(sel=>{
+    const el=$(sel);
+    if(el) el.dataset.initial = el.value || "";
+  });
+}
 
 $("#btnSavePrompt").addEventListener("click",()=>{
   const title=$("#e_title").value.trim();
@@ -934,14 +982,17 @@ $("#btnSavePrompt").addEventListener("click",()=>{
   if(!title){ toast("Título é obrigatório 🙂"); return; }
   if(!text){ toast("Texto é obrigatório 🙂"); return; }
 
+  const categoria = $("#e_categoria").value||"analise";
+  const status = $("#e_status").value||"teste";
+
   const p = {
     id: S.editingId||uid(),
     title,
     text,
-    categoria: $("#e_categoria").value||"analise",
+    categoria,
     subcategoria: $("#e_subcategoria").value||"",
     formato: $("#e_formato").value||"",
-    status: $("#e_status").value||"teste",
+    status: categoria==="arquivados" ? "arquivado" : status,
     ai: $("#e_ai").value||"",
     tags: parseTags($("#e_tags").value),
     quandoUsar: $("#e_quando").value.trim(),
@@ -960,14 +1011,15 @@ $("#btnSavePrompt").addEventListener("click",()=>{
     data.prompts.push(p);
     toast("Prompt criado ✅");
   }
-  S.cat=p.categoria;
-  save(data); closeEditor(); render();
+  S.cat=p.status==="arquivado" ? "arquivados" : p.categoria;
+  saveUIState();
+  save(data); closeEditor(true); render();
 });
 
 $("#btnDeletePrompt").addEventListener("click",()=>{
   if(!confirm("Excluir este prompt? Não dá pra desfazer.")) return;
   data.prompts=data.prompts.filter(x=>x.id!==S.editingId);
-  save(data); closeEditor(); render(); toast("Prompt excluído 🗑️");
+  save(data); closeEditor(true); render(); toast("Prompt excluído 🗑️");
 });
 
 // ── Actions ──
@@ -1036,6 +1088,7 @@ document.addEventListener("keydown",e=>{
 });
 
 // ── Boot ──
+loadUIState();
 render();
 </script>
 

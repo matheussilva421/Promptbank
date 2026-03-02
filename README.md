@@ -36,7 +36,7 @@
 ## 🚀 Como usar
 
 ### Uso local (sem Drive)
-1. Faça o download do arquivo `banco_prompts_v5-3.html`
+1. Faça o download do arquivo `banco_prompts_v5 (3).html`
 2. Abra diretamente no navegador
 3. Seus prompts são salvos automaticamente no `localStorage` do navegador
 
@@ -65,9 +65,11 @@
 
 ```
 Promptbank/
-├── banco_prompts_v5-3.html   # Aplicação completa (single-file)
-├── README.md                  # Documentação do projeto
-└── .gitignore                 # Arquivos ignorados pelo Git
+├── banco_prompts_v5 (3).html   # Aplicação completa (single-file)
+├── README.md                   # Documentação principal
+├── docs/
+│   └── cloudflare-pages-kv.md  # Guia de deploy/sync com Cloudflare
+└── .gitignore                  # Arquivos ignorados pelo Git
 ```
 
 ---
@@ -131,3 +133,13 @@ A aplicação suporta **tema escuro** (padrão) e **tema claro**, com variáveis
 ## 📄 Licença
 
 Este projeto é de uso pessoal/interno. Sinta-se livre para adaptar conforme necessidade.
+
+
+---
+
+## 🧭 Organização recomendada no GitHub
+
+- **Issues com labels**: `bug`, `enhancement`, `sync`, `ux`, `docs`.
+- **Milestones**: `v5.1 (estabilidade)` e `v5.2 (UX/performance)`.
+- **PR template**: incluir seção de risco, testes e screenshot quando houver mudança visual.
+- **Releases**: publicar changelog por versão (ex.: `v5.0.1`, `v5.0.2`).
