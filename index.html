@@ -565,6 +565,29 @@
       color: var(--t3);
     }
 
+    .input-clear-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--t3);
+      font-size: 13px;
+      line-height: 1;
+      padding: 0 2px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s;
+      flex-shrink: 0;
+    }
+    .input-clear-btn.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .input-clear-btn:hover { color: var(--t1); }
+
+    .panel-search .input-clear-btn {
+      font-size: 11px;
+    }
+
     .active-filter-bar {
       display: flex;
       flex-wrap: wrap;
@@ -1344,7 +1367,7 @@
       bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 999;
+      z-index: 1001;
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -1491,6 +1514,42 @@
         border-right: none;
         border-bottom: 1px solid var(--line);
         max-height: 200px;
+        overflow: hidden;
+        transition: max-height .25s ease;
+      }
+
+      .side-panel.collapsed {
+        max-height: 44px;
+        overflow: hidden;
+      }
+
+      .panel-mobile-toggle {
+        display: none;
+      }
+
+      @media (max-width: 768px) {
+        .panel-mobile-toggle {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          padding: 8px 12px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: var(--t1);
+          font-size: 13px;
+          font-weight: 600;
+          font-family: var(--display);
+        }
+        .panel-mobile-toggle .toggle-arrow {
+          font-size: 10px;
+          color: var(--t3);
+          transition: transform .2s;
+        }
+        .side-panel.collapsed .panel-mobile-toggle .toggle-arrow {
+          transform: rotate(-90deg);
+        }
       }
 
       .prompt-grid {
@@ -1556,7 +1615,11 @@
     </nav>
 
     <!-- ══ SIDE PANEL ══ -->
-    <aside class="side-panel">
+    <aside class="side-panel" id="sidePanel">
+      <button class="panel-mobile-toggle" id="btnMobilePanelToggle" aria-label="Expandir/recolher filtros">
+        <span>▾ Filtros</span>
+        <span class="toggle-arrow">▾</span>
+      </button>
       <div class="panel-head">
         <div class="panel-cat-title">
           <span class="panel-cat-icon" id="panelCatIcon">🗂️</span>
@@ -1566,6 +1629,7 @@
         <div class="panel-search">
           <span style="color:var(--t3);font-size:13px;">🔎</span>
           <input id="sideSearch" placeholder="Buscar..." autocomplete="off">
+          <button class="input-clear-btn" id="btnClearSideSearch" title="Limpar busca">✕</button>
         </div>
       </div>
       <div class="panel-body" id="panelBody"></div>
@@ -1581,6 +1645,7 @@
           <div class="search-input-wrap">
             <span style="color:var(--t3);">🔍</span>
             <input id="globalSearch" placeholder="Buscar em todos os prompts...">
+            <button class="input-clear-btn" id="btnClearGlobalSearch" title="Limpar busca">✕</button>
           </div>
           <button class="btn ghost sm" id="btnClearFilters" style="display:none;">✕ Limpar</button>
         </div>
@@ -1909,6 +1974,7 @@
       $("#toasts").appendChild(el);
       setTimeout(() => el.style.opacity = "0", dur - 300);
       setTimeout(() => el.remove(), dur);
+      return el;
     }
 
     // Custom Modals to replace alert/confirm
@@ -2090,7 +2156,7 @@
       try {
         const r = localStorage.getItem(LS_KEY_V3);
         if (r) { const d = JSON.parse(r); if (d?.version === 3 && Array.isArray(d.prompts)) return normalizePromptPayload(d); }
-      } catch (e) { alert("Aviso: Falha ao carregar dados locais (localStorage corrompido). Usando banco vazio."); }
+      } catch (e) { customAlert("Aviso", "Falha ao carregar dados locais (localStorage corrompido). Usando banco vazio."); }
       // Try v2 → migrate
       try {
         const r = localStorage.getItem(LS_KEY_V2);
@@ -2151,7 +2217,9 @@
     const MANUAL_ORDER_KEY = "bancoPrompts_manualOrder_v1";
     const SUBCAT_ORDER_KEY = "bancoPrompts_subcatOrder_v1";
 
-    function saveSubcatOrder() { localStorage.setItem(SUBCAT_ORDER_KEY, JSON.stringify(SUBCATS.map(sc => sc.id))); }
+    function lsSet(key, val) { try { localStorage.setItem(key, val); } catch (e) { console.warn("localStorage quota exceeded:", key); } }
+
+    function saveSubcatOrder() { lsSet(SUBCAT_ORDER_KEY, JSON.stringify(SUBCATS.map(sc => sc.id))); }
     function loadSubcatOrder() {
       try {
         const raw = localStorage.getItem(SUBCAT_ORDER_KEY);
@@ -2170,7 +2238,7 @@
     }
 
     function saveUIState() {
-      localStorage.setItem(UI_STATE_KEY, JSON.stringify({
+      lsSet(UI_STATE_KEY, JSON.stringify({
         cat: S.cat,
         subcat: S.cat === "analise" ? S.subcat : "",
         promptSort: S.promptSort
@@ -2189,7 +2257,7 @@
       } catch (e) { }
     }
 
-    function saveCatOrder() { localStorage.setItem(CAT_ORDER_KEY, JSON.stringify(S.catOrder)); }
+    function saveCatOrder() { lsSet(CAT_ORDER_KEY, JSON.stringify(S.catOrder)); }
     function loadCatOrder() {
       try {
         const raw = localStorage.getItem(CAT_ORDER_KEY);
@@ -2202,7 +2270,7 @@
         S.catOrder = filtered;
       } catch (e) { }
     }
-    function saveManualOrder() { localStorage.setItem(MANUAL_ORDER_KEY, JSON.stringify(S.manualOrder || {})); }
+    function saveManualOrder() { lsSet(MANUAL_ORDER_KEY, JSON.stringify(S.manualOrder || {})); }
     function loadManualOrder() {
       try {
         const raw = localStorage.getItem(MANUAL_ORDER_KEY);
@@ -2225,7 +2293,7 @@
 
     // ── Theme & Colors ──
     const getTheme = () => localStorage.getItem("bpTheme") === "light" ? "light" : "dark";
-    const setTheme = t => { localStorage.setItem("bpTheme", t); document.documentElement.setAttribute("data-theme", t); };
+    const setTheme = t => { lsSet("bpTheme", t); document.documentElement.setAttribute("data-theme", t); };
     document.documentElement.setAttribute("data-theme", getTheme());
 
     const COLORS = [
@@ -2240,7 +2308,7 @@
 
     function applyColor(idx) {
       currentColorIndex = idx;
-      localStorage.setItem("bpColorIdx", idx);
+      lsSet("bpColorIdx", idx);
       const c = COLORS[idx].hex;
       document.documentElement.style.setProperty("--blue", c);
 
@@ -2249,8 +2317,8 @@
       document.documentElement.style.setProperty("--blue2", `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`);
 
       const theme = getTheme();
-      const oppacity = theme === 'light' ? '0.1' : '0.15';
-      document.documentElement.style.setProperty("--blue-g", `rgba(${r}, ${g}, ${b}, ${oppacity})`);
+      const opacity = theme === 'light' ? '0.1' : '0.15';
+      document.documentElement.style.setProperty("--blue-g", `rgba(${r}, ${g}, ${b}, ${opacity})`);
     }
     applyColor(currentColorIndex);
 
@@ -2489,7 +2557,6 @@
             renderSidePanel(); renderMain();
           });
           chips4.appendChild(c);
-          chips4.appendChild(c);
         });
       }
 
@@ -2598,7 +2665,7 @@
         return;
       }
 
-      if (S.cat === "analise" && !S.subcat && S.promptSort !== "manual" && !S.search && !S.sideSearch && S.filterTags.length === 0 && !S.filterFormato && !S.filterStatus) {
+      if (S.cat === "analise" && !S.subcat && S.promptSort !== "manual" && !S.search && !S.sideSearch && S.filterTags.length === 0 && !S.filterFormato && !S.filterStatus && S.filterAis.length === 0) {
         const grouped = {};
         ps.forEach(p => {
           const sc = p.subcategoria || "outros";
@@ -2689,8 +2756,10 @@
       let syncStatusHtml = "";
       if (typeof hasAnyRemoteConfigured !== "undefined" && hasAnyRemoteConfigured()) {
         const lastSync = localStorage.getItem("bancoPrompts_lastSyncTime") || "0";
-        const needsSync = !p.deletedAt && (!lastSync || new Date(p.updatedAt) > new Date(lastSync));
-        syncStatusHtml = needsSync ? `<span title="Alterações locais pendentes de sincronização" style="font-size:10px;margin-left:auto;">🟡</span>` : `<span title="Sincronizado" style="font-size:10px;margin-left:auto;opacity:0.5;">🟢</span>`;
+        if (lastSync !== "0") {
+          const needsSync = !p.deletedAt && new Date(p.updatedAt) > new Date(lastSync);
+          syncStatusHtml = needsSync ? `<span title="Alterações locais pendentes de sincronização" style="font-size:10px;margin-left:auto;">🟡</span>` : `<span title="Sincronizado" style="font-size:10px;margin-left:auto;opacity:0.5;">🟢</span>`;
+        }
       }
 
       let cardTitle = esc(p.title);
@@ -2876,6 +2945,7 @@
     }
     $("#e_text").addEventListener("input", updateTextCounter);
     function editorHasChanges() {
+      if (!$("#editorOverlay").classList.contains("show")) return false;
       if (_editorPinned !== (S.editingId ? !!allPrompts().find(x => x.id === S.editingId)?.pinned : false)) return true;
       const fields = ["#e_title", "#e_text", "#e_categoria", "#e_subcategoria", "#e_formato", "#e_status", "#e_ai", "#e_tags", "#e_quando", "#e_nao_quando", "#e_saida", "#e_note"];
       return fields.some(sel => {
@@ -2924,7 +2994,7 @@
 
       // Prompts
       allPrompts().forEach(p => {
-        if (!query || p.title.toLowerCase().includes(query) || (p.tags || []).some(t => t.toLowerCase().includes(query))) {
+        if (!query || p.title.toLowerCase().includes(query) || (p.tags || []).some(t => t.toLowerCase().includes(query)) || (p.text || "").toLowerCase().includes(query) || (p.quandoUsar || "").toLowerCase().includes(query)) {
           items.push({ icon: "📄", label: p.title, sub: p.categoria, action: () => openDrawer(p.id) });
         }
       });
@@ -2947,6 +3017,8 @@
         d.addEventListener("click", () => { closePalette(); it.action(); });
         results.appendChild(d);
       });
+      const activeEl = results.querySelector(".palette-item.active");
+      if (activeEl) activeEl.scrollIntoView({ block: "nearest" });
     }
 
     $("#paletteInput").addEventListener("input", e => { _paletteIdx = 0; renderPalette(e.target.value); });
@@ -3048,10 +3120,11 @@
         clearTimeout(S.undoTimeout);
         S.undoTimeout = setTimeout(() => { S.lastDeletedPrompt = null; }, 30000);
       }
-      save(data); closeEditor(true); render(); toast("Prompt excluído 🗑️");
+      save(data); closeEditor(true); render();
+      const deletedToast = toast("Prompt excluído 🗑️");
 
       if (S.lastDeletedPrompt) {
-        const t = $("#toasts").lastChild;
+        const t = deletedToast;
         if (t) {
           const btnUndo = document.createElement("button");
           btnUndo.textContent = "Desfazer";
@@ -3059,7 +3132,7 @@
           btnUndo.onclick = () => {
             const rIdx = data.prompts.findIndex(x => x.id === S.lastDeletedPrompt.id);
             if (rIdx >= 0) {
-              data.prompts[rIdx].deletedAt = null;
+              delete data.prompts[rIdx].deletedAt;
               data.prompts[rIdx].updatedAt = nowISO();
             }
             save(data); render();
@@ -3123,6 +3196,7 @@
 
     // ── Actions ──
     let pendingCopyText = "";
+    let pendingCopyId = null;
 
     function copyPrompt(id) {
       const p = allPrompts().find(x => x.id === id); if (!p) return;
@@ -3191,16 +3265,33 @@
 
     // ── Search ──
     const renderMainDebounced = debounce(() => renderMain(), 140);
+    function updateClearBtnVisibility() {
+      const gs = $("#globalSearch"); const ss = $("#sideSearch");
+      $("#btnClearGlobalSearch")?.classList.toggle("visible", !!(gs && gs.value));
+      $("#btnClearSideSearch")?.classList.toggle("visible", !!(ss && ss.value));
+    }
     $("#globalSearch").addEventListener("input", e => {
       S.search = e.target.value; S.sideSearch = "";
       const side = $("#sideSearch"); if (side) side.value = "";
+      updateClearBtnVisibility();
       renderMainDebounced();
     });
     document.addEventListener("input", e => {
       if (e.target.id === "sideSearch") {
         S.sideSearch = e.target.value; S.search = "";
         $("#globalSearch").value = "";
+        updateClearBtnVisibility();
         renderMainDebounced();
+      }
+    });
+    $("#btnClearGlobalSearch").addEventListener("click", () => {
+      S.search = ""; $("#globalSearch").value = "";
+      updateClearBtnVisibility(); renderMain();
+    });
+    document.addEventListener("click", e => {
+      if (e.target.id === "btnClearSideSearch") {
+        S.sideSearch = ""; const ss = $("#sideSearch"); if (ss) ss.value = "";
+        updateClearBtnVisibility(); renderMain();
       }
     });
     $("#btnClearFilters").addEventListener("click", () => {
@@ -3228,7 +3319,7 @@
         if (d?.version === 3 && Array.isArray(d.prompts)) {
           const proceed = await customConfirm("Atenção", "Importar vai substituir os dados atuais. Deseja continuar?");
           if (!proceed) return;
-          data = d; save(data); render(); toast("Importado ✅");
+          data = d; save(data, false); render(); toast("Importado ✅");
         } else if (d?.version === 2 && Array.isArray(d.categories)) {
           const migrate = await customConfirm("Migração v2", "Arquivo v2 detectado. Migrar e combinar com os dados atuais?");
           if (!migrate) return;
@@ -3270,6 +3361,19 @@
         }
       }
     });
+
+    // ── Mobile panel toggle ──
+    (function () {
+      const panel = $("#sidePanel");
+      const btn = $("#btnMobilePanelToggle");
+      if (!panel || !btn) return;
+      const PANEL_COLLAPSED_KEY = "bpMobilePanelCollapsed";
+      if (localStorage.getItem(PANEL_COLLAPSED_KEY) === "1") panel.classList.add("collapsed");
+      btn.addEventListener("click", () => {
+        panel.classList.toggle("collapsed");
+        lsSet(PANEL_COLLAPSED_KEY, panel.classList.contains("collapsed") ? "1" : "0");
+      });
+    })();
 
     // ── Boot ──
     loadCatOrder();
@@ -3398,7 +3502,7 @@
           } else {
             await driveSyncNow();
           }
-          localStorage.setItem("bancoPrompts_lastSyncTime", nowISO());
+          lsSet("bancoPrompts_lastSyncTime", nowISO());
           driveSyncBtn("ok", "Salvo ✔");
           setTimeout(refreshSyncIdleState, 2500);
         } catch (e) {
@@ -3499,7 +3603,7 @@
       cfState.syncTimer = setTimeout(async () => {
         try {
           await cfSyncNow();
-          localStorage.setItem("bancoPrompts_lastSyncTime", nowISO());
+          lsSet("bancoPrompts_lastSyncTime", nowISO());
           driveSyncBtn("ok", "Salvo ✔");
           setTimeout(refreshSyncIdleState, 2500);
         } catch (e) {
@@ -3658,11 +3762,11 @@
 
       err.textContent = "";
       driveState.clientId = clientId;
-      if (clientId) localStorage.setItem(GDRIVE_LS_KEY, clientId); else localStorage.removeItem(GDRIVE_LS_KEY);
+      if (clientId) lsSet(GDRIVE_LS_KEY, clientId); else localStorage.removeItem(GDRIVE_LS_KEY);
 
       cfState.url = cfUrl; cfState.token = cfToken;
-      if (cfUrl) localStorage.setItem(CFSYNC_URL_KEY, cfUrl); else localStorage.removeItem(CFSYNC_URL_KEY);
-      if (cfToken) localStorage.setItem(CFSYNC_TOKEN_KEY, cfToken); else localStorage.removeItem(CFSYNC_TOKEN_KEY);
+      if (cfUrl) lsSet(CFSYNC_URL_KEY, cfUrl); else localStorage.removeItem(CFSYNC_URL_KEY);
+      if (cfToken) lsSet(CFSYNC_TOKEN_KEY, cfToken); else localStorage.removeItem(CFSYNC_TOKEN_KEY);
 
       closeDriveSetupModal();
       refreshSyncIdleState();
