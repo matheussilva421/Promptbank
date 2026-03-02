@@ -84,6 +84,7 @@ a{color:inherit;text-decoration:none;}
 /* Subcategory nav */
 .subcat-nav{display:flex;flex-direction:column;gap:3px;}
 .subcat-item{padding:8px 10px;border-radius:var(--r2);border:1px solid transparent;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .12s,border-color .12s;font-size:13px;user-select:none;}
+.subcat-item.dragging{opacity:.55;border-style:dashed;}
 .subcat-item:hover{background:var(--bg3);}
 .subcat-item.active{background:var(--blue-g);border-color:rgba(20,178,228,.35);}
 .subcat-item-name{font-weight:500;}
@@ -115,7 +116,19 @@ a{color:inherit;text-decoration:none;}
 .prompt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;align-content:start;}
 .prompt-card{background:var(--bg1);border:1px solid var(--line);border-radius:var(--r3);padding:14px;display:flex;flex-direction:column;gap:8px;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .1s;}
 .prompt-card:hover{border-color:var(--line2);box-shadow:var(--sh1);transform:translateY(-1px);}
+.prompt-card.manual-sort{cursor:default;}
+.prompt-card.dragging{opacity:.5;border-style:dashed;}
+.sort-bar{display:flex;gap:8px;padding:8px 0 4px;align-items:center;flex-wrap:wrap;}
+.sort-label{font-size:12px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+.sort-chip{border:1px solid var(--line2);background:var(--bg2);color:var(--t2);padding:5px 10px;border-radius:999px;font-size:12px;cursor:pointer;user-select:none;}
+.sort-chip.active{background:var(--blue-g);border-color:rgba(20,178,228,.35);color:var(--blue);}
+.settings-sep{height:1px;background:var(--line2);margin:12px 0;}
+.settings-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap;}
 .card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.card-title-wrap{display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0;}
+.card-drag-handle{display:none;border:1px dashed var(--line2);background:var(--bg2);color:var(--t3);border-radius:8px;padding:1px 6px;font-size:14px;line-height:1.2;cursor:grab;user-select:none;flex-shrink:0;}
+.prompt-card.manual-sort .card-drag-handle{display:inline-flex;}
+.card-drag-handle:active{cursor:grabbing;}
 .card-title{font-weight:600;font-size:13px;line-height:1.4;flex:1;}
 .card-ai{font-size:10px;font-family:var(--mono);color:var(--t3);background:var(--bg3);padding:2px 6px;border-radius:4px;flex-shrink:0;}
 .card-badges{display:flex;flex-wrap:wrap;gap:4px;}
@@ -221,14 +234,7 @@ a{color:inherit;text-decoration:none;}
       <div class="dock-icon-btn" id="btnTheme">
         🌗<div class="tooltip">Alternar tema</div>
       </div>
-      <div class="dock-icon-btn" id="btnDataMenu" style="position:relative;">
-        ···<div class="tooltip">Dados</div>
-        <div id="dataMenu" style="display:none;position:fixed;left:calc(var(--dock-w) + 6px);bottom:16px;background:var(--bg4);border:1px solid var(--line2);border-radius:var(--r3);box-shadow:var(--sh3);padding:6px;z-index:200;min-width:170px;flex-direction:column;gap:2px;">
-          <button class="data-menu-item" id="btnSyncSettings" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border-radius:var(--r1);font-size:13px;color:var(--t2);transition:background .12s;">☁️ Configurar syncs</button>
-          <button class="data-menu-item" id="btnExport" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border-radius:var(--r1);font-size:13px;color:var(--t2);transition:background .12s;">⬇️ Exportar JSON</button>
-          <button class="data-menu-item" id="btnImport" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;border-radius:var(--r1);font-size:13px;color:var(--t2);transition:background .12s;">⬆️ Importar JSON</button>
-        </div>
-      </div>
+      <div class="dock-icon-btn" id="btnSettings">⚙️<div class="tooltip">Configurações</div></div>
       <input id="importFile" type="file" accept="application/json" style="display:none;">
     </div>
   </nav>
@@ -263,6 +269,7 @@ a{color:inherit;text-decoration:none;}
         <button class="btn ghost sm" id="btnClearFilters" style="display:none;">✕ Limpar</button>
       </div>
       <div class="active-filter-bar" id="activeFilterBar"></div>
+      <div class="sort-bar" id="sortBar"></div>
     </div>
     <div class="prompt-grid-wrap">
       <div class="prompt-grid" id="promptGrid"></div>
@@ -380,21 +387,25 @@ a{color:inherit;text-decoration:none;}
 
 <!-- ══ SYNC SETUP MODAL ══ -->
 <div class="modal-overlay" id="driveSetupModal">
-  <div class="drive-modal" style="width:min(700px,94vw);max-height:86vh;overflow:auto;">
-    <h2>☁️ Configurar sincronizações</h2>
-    <p>O app sempre salva localmente no navegador (<code style="font-family:var(--mono);font-size:12px;background:var(--bg3);padding:1px 5px;border-radius:4px;">localStorage</code>). Aqui você pode ativar também Google Drive e/ou Cloudflare KV.</p>
+  <div class="drive-modal" style="width:min(760px,95vw);max-height:88vh;overflow:auto;">
+    <h2>⚙️ Configurações</h2>
+    <p>Página única para sincronizações e gestão de dados.</p>
 
     <div style="border:1px solid var(--line2);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
       <div style="font-weight:700;margin-bottom:4px;">💾 Local</div>
-      <div style="font-size:12px;color:var(--t2);">Sempre ativo. Exportar/Importar JSON continua disponível no menu de dados.</div>
+      <div style="font-size:12px;color:var(--t2);">Sempre ativo em <code style="font-family:var(--mono);font-size:11px;background:var(--bg3);padding:1px 5px;border-radius:4px;">localStorage</code>.</div>
+      <div class="settings-actions">
+        <button class="btn ghost" id="btnExport">⬇️ Exportar JSON</button>
+        <button class="btn ghost" id="btnImport">⬆️ Importar JSON</button>
+      </div>
     </div>
 
     <div style="border:1px solid var(--line2);border-radius:12px;padding:12px 14px;margin-bottom:12px;">
       <div style="font-weight:700;margin-bottom:6px;">🟡 Google Drive</div>
-      <div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:8px;">Configure o <strong>Client ID</strong> do Google Cloud para sync no arquivo <code style="font-family:var(--mono);font-size:11px;">banco_prompts.json</code>.</div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:8px;">Configure o <strong>Client ID</strong> para sync em <code style="font-family:var(--mono);font-size:11px;">banco_prompts.json</code>.</div>
       <label for="driveClientIdInput">Client ID</label>
       <input type="text" id="driveClientIdInput" placeholder="xxxxxx.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
-      <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+      <div class="settings-actions">
         <button class="btn danger" id="btnDriveSetupDisconnect" style="display:none;">Desconectar Google</button>
       </div>
     </div>
@@ -406,7 +417,7 @@ a{color:inherit;text-decoration:none;}
       <input type="text" id="cfSyncUrlInput" placeholder="https://seu-worker.workers.dev/sync" autocomplete="off" spellcheck="false">
       <label for="cfSyncTokenInput" style="margin-top:10px;">Token (Bearer)</label>
       <input type="text" id="cfSyncTokenInput" placeholder="seu-token" autocomplete="off" spellcheck="false">
-      <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+      <div class="settings-actions">
         <button class="btn danger" id="btnCfSetupDisconnect" style="display:none;">Desconectar Cloudflare</button>
       </div>
     </div>
@@ -630,12 +641,23 @@ let S = {
   sideSearch: "",
   openPromptId: null,
   editingId: null,
+  promptSort: "updated-desc",
+  catOrder: CATS.map(c=>c.id),
+  manualOrder: {},
+  draggingPromptId: null,
+  suppressNextCardClick: false,
 };
 
-const UI_STATE_KEY = "bancoPrompts_uiState_v1";
+const UI_STATE_KEY = "bancoPrompts_uiState_v2";
+const CAT_ORDER_KEY = "bancoPrompts_catOrder_v1";
+const MANUAL_ORDER_KEY = "bancoPrompts_manualOrder_v1";
 
 function saveUIState(){
-  localStorage.setItem(UI_STATE_KEY, JSON.stringify({ cat: S.cat, subcat: S.cat==="analise" ? S.subcat : "" }));
+  localStorage.setItem(UI_STATE_KEY, JSON.stringify({
+    cat: S.cat,
+    subcat: S.cat==="analise" ? S.subcat : "",
+    promptSort: S.promptSort
+  }));
 }
 
 function loadUIState(){
@@ -644,9 +666,44 @@ function loadUIState(){
     if(!raw) return;
     const st = JSON.parse(raw);
     if(st?.cat && CATS.some(c=>c.id===st.cat)) S.cat = st.cat;
+    if(st?.promptSort && ["updated-desc","title-asc","manual"].includes(st.promptSort)) S.promptSort=st.promptSort;
     if(S.cat!=="analise") { S.subcat=""; return; }
     if(st?.subcat && SUBCATS.some(sc=>sc.id===st.subcat)) S.subcat = st.subcat;
   }catch(e){}
+}
+
+function saveCatOrder(){ localStorage.setItem(CAT_ORDER_KEY, JSON.stringify(S.catOrder)); }
+function loadCatOrder(){
+  try{
+    const raw=localStorage.getItem(CAT_ORDER_KEY);
+    if(!raw) return;
+    const parsed=JSON.parse(raw);
+    if(!Array.isArray(parsed)) return;
+    const validIds=CATS.map(c=>c.id);
+    const filtered=parsed.filter(id=>validIds.includes(id));
+    validIds.forEach(id=>{ if(!filtered.includes(id)) filtered.push(id); });
+    S.catOrder=filtered;
+  }catch(e){}
+}
+function saveManualOrder(){ localStorage.setItem(MANUAL_ORDER_KEY, JSON.stringify(S.manualOrder||{})); }
+function loadManualOrder(){
+  try{
+    const raw=localStorage.getItem(MANUAL_ORDER_KEY);
+    if(!raw) return;
+    const parsed=JSON.parse(raw);
+    if(parsed && typeof parsed==="object") S.manualOrder=parsed;
+  }catch(e){}
+}
+function currentManualKey(){ return S.cat==="analise" && S.subcat ? `${S.cat}:${S.subcat}` : S.cat; }
+function getManualIdsForCurrent(){
+  const key=currentManualKey();
+  const ids=S.manualOrder[key]||[];
+  const exists=new Set(filteredPromptsBase().map(p=>p.id));
+  return ids.filter(id=>exists.has(id));
+}
+function setManualIdsForCurrent(ids){
+  S.manualOrder[currentManualKey()]=ids.slice();
+  saveManualOrder();
 }
 
 // ── Theme ──
@@ -664,7 +721,7 @@ function promptsForCat(cat) {
     return p.categoria===cat;
   });
 }
-function filteredPrompts() {
+function filteredPromptsBase() {
   let ps = promptsForCat(S.cat);
   if(S.cat==="analise"&&S.subcat) ps=ps.filter(p=>p.subcategoria===S.subcat);
   const q=(S.search||S.sideSearch).trim().toLowerCase();
@@ -673,8 +730,20 @@ function filteredPrompts() {
   if(S.filterStatus) ps=ps.filter(p=>p.status===S.filterStatus);
   if(S.filterTags.length) ps=ps.filter(p=>S.filterTags.every(ft=>(p.tags||[]).map(t=>t.toLowerCase()).includes(ft.toLowerCase())));
   if(S.filterAis.length) ps=ps.filter(p=>S.filterAis.includes((p.ai||"").toLowerCase()));
-  ps=ps.slice().sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0));
   return ps;
+}
+function filteredPrompts() {
+  const ps = filteredPromptsBase().slice();
+  if(S.promptSort==="title-asc") return ps.sort((a,b)=>(a.title||"").localeCompare((b.title||""),"pt-BR"));
+  if(S.promptSort==="manual"){
+    const manualIds=getManualIdsForCurrent();
+    const byId=new Map(ps.map(p=>[p.id,p]));
+    const ordered=[];
+    manualIds.forEach(id=>{ if(byId.has(id)){ ordered.push(byId.get(id)); byId.delete(id); } });
+    const rest=[...byId.values()].sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0));
+    return [...ordered,...rest];
+  }
+  return ps.sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0));
 }
 function hasActiveFilters() {
   return S.search||S.sideSearch||S.filterFormato||S.filterStatus||S.filterTags.length||S.filterAis.length;
@@ -685,9 +754,13 @@ function render() { renderDock(); renderSidePanel(); renderMain(); }
 
 function renderDock() {
   const el=$("#dockCats"); el.innerHTML="";
-  CATS.forEach(cat=>{
+  const catById=new Map(CATS.map(c=>[c.id,c]));
+  const orderedCats=(S.catOrder||[]).map(id=>catById.get(id)).filter(Boolean);
+  orderedCats.forEach(cat=>{
     const d=document.createElement("div");
     d.className="dock-item"+(S.cat===cat.id?" active":"");
+    d.draggable=true;
+    d.dataset.catId=cat.id;
     const count=promptsForCat(cat.id).length;
     d.innerHTML=`${cat.icon}<div class="tooltip">${esc(cat.name)} (${count})</div>`;
     d.addEventListener("click",()=>{
@@ -695,6 +768,23 @@ function renderDock() {
       S.filterFormato=""; S.filterStatus=""; S.filterTags=[]; S.filterAis=[];
       $("#sideSearch").value=""; $("#globalSearch").value="";
       saveUIState();
+      render();
+    });
+    d.addEventListener("dragstart",()=>d.classList.add("dragging"));
+    d.addEventListener("dragend",()=>d.classList.remove("dragging"));
+    d.addEventListener("dragover",e=>{
+      e.preventDefault();
+      const dragging=el.querySelector('.dock-item.dragging');
+      if(!dragging || dragging===d) return;
+      const rect=d.getBoundingClientRect();
+      const before=e.clientY < rect.top + rect.height/2;
+      if(before) el.insertBefore(dragging,d);
+      else el.insertBefore(dragging,d.nextSibling);
+    });
+    d.addEventListener("drop",e=>{
+      e.preventDefault();
+      S.catOrder=[...el.querySelectorAll('.dock-item')].map(x=>x.dataset.catId);
+      saveCatOrder();
       render();
     });
     el.appendChild(d);
@@ -726,8 +816,30 @@ function renderSidePanel() {
       const count=allPrompts().filter(p=>p.categoria==="analise"&&p.subcategoria===sc.id).length;
       const item=document.createElement("div");
       item.className="subcat-item"+(S.subcat===sc.id?" active":"");
+      item.draggable=true;
+      item.dataset.subcatId=sc.id;
       item.innerHTML=`<span class="subcat-item-name">${esc(sc.name)}</span><span class="subcat-count">${count}</span>`;
       item.addEventListener("click",()=>{ S.subcat=sc.id; saveUIState(); renderSidePanel(); renderMain(); });
+      item.addEventListener("dragstart",()=>item.classList.add("dragging"));
+      item.addEventListener("dragend",()=>item.classList.remove("dragging"));
+      item.addEventListener("dragover",e=>{
+        e.preventDefault();
+        const dragging=nav.querySelector('.subcat-item.dragging');
+        if(!dragging || dragging===item || !dragging.dataset.subcatId) return;
+        const rect=item.getBoundingClientRect();
+        const before=e.clientY < rect.top + rect.height/2;
+        if(before) nav.insertBefore(dragging,item);
+        else nav.insertBefore(dragging,item.nextSibling);
+      });
+      item.addEventListener("drop",e=>{
+        e.preventDefault();
+        const ordered=[...nav.querySelectorAll('.subcat-item[data-subcat-id]')].map(x=>x.dataset.subcatId);
+        if(ordered.length===SUBCATS.length){
+          const map=new Map(SUBCATS.map(sc=>[sc.id,sc]));
+          SUBCATS.splice(0,SUBCATS.length,...ordered.map(id=>map.get(id)).filter(Boolean));
+          renderSidePanel();
+        }
+      });
       nav.appendChild(item);
     });
     body.appendChild(nav);
@@ -808,7 +920,25 @@ function renderSidePanel() {
   }
 }
 
+function renderSortBar(){
+  const bar=$("#sortBar");
+  const opts=[
+    {id:"updated-desc",label:"🕒 Última edição"},
+    {id:"title-asc",label:"🔤 Título"},
+    {id:"manual",label:"✋ Manual (arrastar cards)"},
+  ];
+  bar.innerHTML='<span class="sort-label">Ordenar por</span>';
+  opts.forEach(o=>{
+    const b=document.createElement("button");
+    b.className="sort-chip"+(S.promptSort===o.id?" active":"");
+    b.textContent=o.label;
+    b.addEventListener("click",()=>{ S.promptSort=o.id; saveUIState(); renderMain(); });
+    bar.appendChild(b);
+  });
+}
+
 function renderMain() {
+  renderSortBar();
   // Active filter bar
   const bar=$("#activeFilterBar"); bar.innerHTML="";
   const addChip=(label,onRemove)=>{
@@ -839,10 +969,56 @@ function renderMain() {
   }
 
   ps.forEach(p=>grid.appendChild(buildCard(p)));
+
+  if(S.promptSort==="manual"){
+    grid.addEventListener("dragover",e=>{
+      e.preventDefault();
+      const dragging=S.draggingPromptId ? grid.querySelector(`.prompt-card[data-prompt-id="${S.draggingPromptId}"]`) : null;
+      if(!dragging) return;
+
+      const cards=[...grid.querySelectorAll(".prompt-card:not(.dragging)")];
+      if(!cards.length){
+        grid.appendChild(dragging);
+        return;
+      }
+
+      let bestCard=null;
+      let bestDist=Number.POSITIVE_INFINITY;
+      cards.forEach(card=>{
+        const r=card.getBoundingClientRect();
+        const cx=r.left+r.width/2;
+        const cy=r.top+r.height/2;
+        const dist=Math.hypot(e.clientX-cx,e.clientY-cy);
+        if(dist<bestDist){
+          bestDist=dist;
+          bestCard=card;
+        }
+      });
+
+      if(!bestCard){
+        grid.appendChild(dragging);
+        return;
+      }
+
+      const rect=bestCard.getBoundingClientRect();
+      const pointerBefore = e.clientY < rect.top + rect.height/2 || (Math.abs(e.clientY-(rect.top+rect.height/2))<12 && e.clientX < rect.left + rect.width/2);
+      if(pointerBefore) grid.insertBefore(dragging,bestCard);
+      else grid.insertBefore(dragging,bestCard.nextSibling);
+    });
+
+    grid.addEventListener("drop",e=>{
+      e.preventDefault();
+      setManualIdsForCurrent([...grid.querySelectorAll(".prompt-card")].map(c=>c.dataset.promptId));
+      S.draggingPromptId=null;
+      renderMain();
+    });
+  }
 }
 
 function buildCard(p) {
-  const card=document.createElement("div"); card.className="prompt-card";
+  const card=document.createElement("div");
+  card.className="prompt-card"+(S.promptSort==="manual"?" manual-sort":"");
+  card.dataset.promptId=p.id;
   const statusClass="badge-"+(p.status||"teste");
   const statusLabel=STATUS_LABELS[p.status||"teste"]||p.status;
   const formatoLabel=FORMATO_LABELS[p.formato]||"";
@@ -852,7 +1028,10 @@ function buildCard(p) {
 
   card.innerHTML=`
     <div class="card-top">
-      <div class="card-title">${esc(p.title)}</div>
+      <div class="card-title-wrap">
+        <span class="card-drag-handle" title="Arrastar card" draggable="true" data-action="drag-handle">⋮⋮</span>
+        <div class="card-title">${esc(p.title)}</div>
+      </div>
       ${p.ai?`<div class="card-ai">${esc(p.ai.toUpperCase())}</div>`:""}
     </div>
     <div class="card-badges">
@@ -869,12 +1048,30 @@ function buildCard(p) {
     </div>`;
 
   card.addEventListener("click", e=>{
-    if(e.target.dataset.action) return;
+    if(e.target.closest("[data-action]")) return;
+    if(S.suppressNextCardClick) return;
     openDrawer(p.id);
   });
   card.querySelector("[data-action=copy]").addEventListener("click",e=>{ e.stopPropagation(); copyPrompt(p.id); });
   card.querySelector("[data-action=edit]").addEventListener("click",e=>{ e.stopPropagation(); openEditor(p.id); });
   card.querySelector("[data-action=dupe]").addEventListener("click",e=>{ e.stopPropagation(); duplicatePrompt(p.id); });
+  if(S.promptSort==="manual"){
+    const handle=card.querySelector('[data-action="drag-handle"]');
+    handle.addEventListener("dragstart",e=>{
+      card.classList.add("dragging");
+      S.draggingPromptId=p.id;
+      S.suppressNextCardClick=true;
+      if(e.dataTransfer){
+        e.dataTransfer.effectAllowed="move";
+        e.dataTransfer.setData("text/plain", p.id);
+      }
+    });
+    handle.addEventListener("dragend",()=>{
+      card.classList.remove("dragging");
+      S.draggingPromptId=null;
+      setTimeout(()=>{ S.suppressNextCardClick=false; }, 80);
+    });
+  }
   return card;
 }
 
@@ -1070,17 +1267,12 @@ $("#btnClearFilters").addEventListener("click",()=>{
 // ── Theme ──
 $("#btnTheme").addEventListener("click",()=>{ const n=getTheme()==="light"?"dark":"light"; setTheme(n); toast(n==="light"?"Tema claro ☀️":"Tema escuro 🌙"); });
 
-// ── Data menu ──
-const dataMenu=$("#dataMenu");
-$("#btnDataMenu").addEventListener("click",e=>{ e.stopPropagation(); dataMenu.style.display=dataMenu.style.display==="flex"?"none":"flex"; });
-document.addEventListener("click",()=>{ dataMenu.style.display="none"; });
-dataMenu.addEventListener("click",e=>e.stopPropagation());
-
+// ── Settings / Data actions ──
 function dl(name,content,type="application/json"){
   const b=new Blob([content],{type}); const u=URL.createObjectURL(b);
   const a=document.createElement("a"); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(u);
 }
-$("#btnSyncSettings").addEventListener("click",()=>{ dataMenu.style.display="none"; if(typeof openDriveSetupModal==="function") openDriveSetupModal(); });
+$("#btnSettings").addEventListener("click",()=>{ if(typeof openDriveSetupModal==="function") openDriveSetupModal(); });
 $("#btnExport").addEventListener("click",()=>{ dl("banco-prompts.json",JSON.stringify(data,null,2)); toast("Exportado ⬇️"); });
 $("#btnImport").addEventListener("click",()=>$("#importFile").click());
 $("#importFile").addEventListener("change",async e=>{
@@ -1110,6 +1302,8 @@ document.addEventListener("keydown",e=>{
 });
 
 // ── Boot ──
+loadCatOrder();
+loadManualOrder();
 loadUIState();
 render();
 </script>
