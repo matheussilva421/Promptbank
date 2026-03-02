@@ -1493,6 +1493,19 @@
     </div>
   </div>
 
+  <!-- ══ VARIABLES MODAL ══ -->
+  <div class="modal-overlay" id="varModal">
+    <div class="drive-modal" style="width:min(500px,95vw);">
+      <h2>📝 Preencher Variáveis</h2>
+      <p style="margin-bottom:16px;">Preencha os valores antes de copiar o prompt.</p>
+      <div id="varFieldsContainer" style="display:flex;flex-direction:column;gap:12px;"></div>
+      <div class="drive-modal-actions" style="margin-top:20px;">
+        <button class="btn ghost" id="btnCancelVarModal">Cancelar</button>
+        <button class="btn primary" id="btnConfirmVarModal">📋 Copiar Preenchido</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ SYNC SETUP MODAL ══ -->
   <div class="modal-overlay" id="driveSetupModal">
     <div class="drive-modal" style="width:min(760px,95vw);max-height:88vh;overflow:auto;">
@@ -1545,8 +1558,6 @@
     </div>
   </div>
 
-  <!-- ══ EMBEDDED DATA (kept empty for fresh start) ══ -->
-  <script id="embeddedData" type="application/json">{}</script>
 
   <script>
     /* ═══════════════════════════════════════════
@@ -1589,7 +1600,7 @@
     const $ = (s, r = document) => r.querySelector(s);
     const uid = () => Math.random().toString(16).slice(2) + "-" + Date.now().toString(16);
     const nowISO = () => new Date().toISOString();
-    const esc = s => String(s ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+    const esc = s => String(s ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
     const normalizeTag = t => (t || "").trim().toLowerCase();
     const parseTags = s => [...new Set((s || "").split(",").map(normalizeTag).filter(Boolean))];
     const fmt = iso => { try { return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }); } catch (e) { return "—"; } };
@@ -1697,14 +1708,40 @@
     function normalizePromptPayload(d) {
       if (!d?.prompts || !Array.isArray(d.prompts)) return d;
       let changed = false;
-      d.prompts = d.prompts.map(p => {
+      const newPrompts = d.prompts.map(p => {
         const tags = [...new Set((Array.isArray(p.tags) ? p.tags : []).map(normalizeTag).filter(Boolean))];
         const ai = (p.ai || "").trim().toLowerCase();
         if (JSON.stringify(tags) !== JSON.stringify(p.tags || []) || ai !== (p.ai || "")) changed = true;
         return { ...p, tags, ai };
       });
-      if (changed) d.updatedAt = nowISO();
-      return d;
+      if (changed) return { ...d, prompts: newPrompts, updatedAt: nowISO() };
+      return { ...d, prompts: newPrompts };
+    }
+
+    function mergeData(local, remote) {
+      if (!remote?.prompts || !Array.isArray(remote.prompts)) return local;
+      if (!local?.prompts || !Array.isArray(local.prompts)) return remote;
+
+      const localMap = new Map(local.prompts.map(p => [p.id, p]));
+      const remoteMap = new Map(remote.prompts.map(p => [p.id, p]));
+      const mergedPrompts = [];
+      const allIds = new Set([...localMap.keys(), ...remoteMap.keys()]);
+
+      for (const id of allIds) {
+        const lp = localMap.get(id);
+        const rp = remoteMap.get(id);
+        if (lp && !rp) mergedPrompts.push(lp);
+        else if (!lp && rp) mergedPrompts.push(rp);
+        else {
+          const lTime = new Date(lp.updatedAt || 0).getTime();
+          const rTime = new Date(rp.updatedAt || 0).getTime();
+          mergedPrompts.push(rTime > lTime ? rp : lp);
+        }
+      }
+      const maxLocal = local.prompts.reduce((m, p) => Math.max(m, new Date(p.updatedAt || 0).getTime()), 0);
+      const maxRemote = remote.prompts.reduce((m, p) => Math.max(m, new Date(p.updatedAt || 0).getTime()), 0);
+      const mergedUpdatedAt = new Date(Math.max(maxLocal, maxRemote, new Date(local.updatedAt || 0).getTime(), new Date(remote.updatedAt || 0).getTime())).toISOString();
+      return { ...local, version: 3, prompts: mergedPrompts, updatedAt: mergedUpdatedAt };
     }
 
     function load() {
@@ -1712,27 +1749,22 @@
       try {
         const r = localStorage.getItem(LS_KEY_V3);
         if (r) { const d = JSON.parse(r); if (d?.version === 3 && Array.isArray(d.prompts)) return normalizePromptPayload(d); }
-      } catch (e) { }
+      } catch (e) { alert("Aviso: Falha ao carregar dados locais (localStorage corrompido). Usando banco vazio."); }
       // Try v2 → migrate
       try {
         const r = localStorage.getItem(LS_KEY_V2);
         if (r) { const d = JSON.parse(r); if (d?.version === 2 && Array.isArray(d.categories)) { toast("Dados migrados para v5 ✅"); return migrateV2toV3(d); } }
       } catch (e) { }
-      // Try embedded data
-      try {
-        const embedded = document.getElementById("embeddedData")?.textContent?.trim();
-        if (embedded) {
-          const d = JSON.parse(embedded);
-          if (d?.version === 3 && Array.isArray(d.prompts)) return normalizePromptPayload(d);
-          if (d?.version === 2 && Array.isArray(d.categories)) return migrateV2toV3(d);
-        }
-      } catch (e) { }
       return defaultData();
     }
 
+    let _lsTimer = null;
     function save(d, bumpTime = true) {
       if (bumpTime) d.updatedAt = nowISO();
-      localStorage.setItem(LS_KEY_V3, JSON.stringify(d, null, 2));
+      clearTimeout(_lsTimer);
+      _lsTimer = setTimeout(() => {
+        localStorage.setItem(LS_KEY_V3, JSON.stringify(d, null, 2));
+      }, 400);
     }
 
     let data = load();
@@ -1845,6 +1877,7 @@
       if (cat === "todos") return allPrompts();
       if (cat === "arquivados") return allPrompts().filter(p => p.status === "arquivado" || p.categoria === "arquivados");
       return allPrompts().filter(p => {
+        if (p.status === "arquivado" && p.categoria !== "arquivados") return false;
         if (cat === "analise") return p.categoria === "analise";
         return p.categoria === cat;
       });
@@ -2266,7 +2299,7 @@
 
       const footer = $("#drawerFooter"); footer.innerHTML = "";
       const btnCopy = document.createElement("button"); btnCopy.className = "btn primary"; btnCopy.textContent = "📋 Copiar"; btnCopy.addEventListener("click", () => copyPrompt(id));
-      const btnEdit = document.createElement("button"); btnEdit.className = "btn ghost"; btnEdit.textContent = "✏️ Editar"; btnEdit.addEventListener("click", () => { closeDrawer(); openEditor(id); });
+      const btnEdit = document.createElement("button"); btnEdit.className = "btn ghost"; btnEdit.textContent = "✏️ Editar"; btnEdit.addEventListener("click", () => { closeDrawer(); setTimeout(() => openEditor(id), 10); });
       const btnDupe = document.createElement("button"); btnDupe.className = "btn ghost"; btnDupe.textContent = "🔁 Duplicar"; btnDupe.addEventListener("click", () => { duplicatePrompt(id); closeDrawer(); });
       footer.appendChild(btnCopy); footer.appendChild(btnEdit); footer.appendChild(btnDupe);
 
@@ -2325,10 +2358,11 @@
     $("#e_categoria").addEventListener("change", toggleSubcatField);
 
     function toggleSubcatField() {
-      const field = $("#e_subcategoria")?.closest(".field");
+      const subcatEl = $("#e_subcategoria");
+      const field = subcatEl?.closest(".field");
       const isAnalise = $("#e_categoria")?.value === "analise";
       if (field) field.style.display = isAnalise ? "" : "none";
-      if (!isAnalise) $("#e_subcategoria").value = "";
+      if (!isAnalise && subcatEl) subcatEl.value = "";
     }
 
     function snapshotEditorInitialValues() {
@@ -2385,10 +2419,50 @@
     });
 
     // ── Actions ──
+    let pendingCopyText = "";
+
     function copyPrompt(id) {
       const p = allPrompts().find(x => x.id === id); if (!p) return;
-      navigator.clipboard.writeText(p.text || "").then(() => toast("Copiado ✅")).catch(() => toast("Erro ao copiar ❌"));
+      const text = p.text || "";
+      const matches = [...text.matchAll(/\{\{([^}]+)\}\}/g)];
+
+      if (matches.length > 0) {
+        const uniqueVars = [...new Set(matches.map(m => m[1]))];
+        const container = $("#varFieldsContainer");
+        container.innerHTML = "";
+
+        uniqueVars.forEach(v => {
+          const field = document.createElement("div");
+          field.className = "field";
+          field.innerHTML = `<label>${esc(v)}</label><input type="text" data-var="${esc(v)}" placeholder="Valor para ${esc(v)}">`;
+          container.appendChild(field);
+        });
+
+        pendingCopyText = text;
+        $("#varModal").classList.add("show");
+        setTimeout(() => container.querySelector("input")?.focus(), 100);
+      } else {
+        doCopy(text);
+      }
     }
+
+    function doCopy(text) {
+      navigator.clipboard.writeText(text).then(() => toast("Copiado ✅")).catch(() => toast("Erro ao copiar ❌"));
+    }
+
+    $("#btnCancelVarModal").addEventListener("click", () => { $("#varModal").classList.remove("show"); });
+    $("#varModal").addEventListener("click", e => { if (e.target === e.currentTarget) $("#varModal").classList.remove("show"); });
+    $("#btnConfirmVarModal").addEventListener("click", () => {
+      let finalTxt = pendingCopyText;
+      const inputs = document.querySelectorAll("#varFieldsContainer input");
+      inputs.forEach(inp => {
+        const v = inp.dataset.var;
+        const val = inp.value || `{{${v}}}`;
+        finalTxt = finalTxt.replaceAll(`{{${v}}}`, val);
+      });
+      doCopy(finalTxt);
+      $("#varModal").classList.remove("show");
+    });
     function duplicatePrompt(id) {
       const p = allPrompts().find(x => x.id === id); if (!p) return;
       const copy = { ...p, id: uid(), title: "[Cópia] " + p.title, status: "teste", createdAt: nowISO(), updatedAt: nowISO() };
@@ -2402,11 +2476,21 @@
 
     // ── Search ──
     const renderMainDebounced = debounce(() => renderMain(), 140);
-    $("#globalSearch").addEventListener("input", e => { S.search = e.target.value; renderMainDebounced(); });
-    document.addEventListener("input", e => { if (e.target.id === "sideSearch") { S.sideSearch = e.target.value; renderMainDebounced(); } });
+    $("#globalSearch").addEventListener("input", e => {
+      S.search = e.target.value; S.sideSearch = "";
+      const side = $("#sideSearch"); if (side) side.value = "";
+      renderMainDebounced();
+    });
+    document.addEventListener("input", e => {
+      if (e.target.id === "sideSearch") {
+        S.sideSearch = e.target.value; S.search = "";
+        $("#globalSearch").value = "";
+        renderMainDebounced();
+      }
+    });
     $("#btnClearFilters").addEventListener("click", () => {
       S.search = ""; S.sideSearch = ""; S.filterFormato = ""; S.filterStatus = ""; S.filterTags = []; S.filterAis = [];
-      $("#globalSearch").value = ""; $("#sideSearch").value = "";
+      $("#globalSearch").value = ""; const side = $("#sideSearch"); if (side) side.value = "";
       renderSidePanel(); renderMain();
     });
 
@@ -2529,7 +2613,24 @@
       const res = await driveUpload(data, driveState.fileId);
       if (res.id) driveState.fileId = res.id;
     }
-    function driveSyncDebounced() { clearTimeout(driveState.syncTimer); driveState.syncTimer = setTimeout(() => driveSyncNow().catch(e => console.error("[Drive]", e)), 2000); }
+    function driveSyncDebounced() {
+      clearTimeout(driveState.syncTimer);
+      driveSyncBtn("syncing", "Salvando...");
+      driveState.syncTimer = setTimeout(async () => {
+        try {
+          if (!driveState.token) {
+            await ensureGoogleReadyAndSync(false);
+          } else {
+            await driveSyncNow();
+          }
+          driveSyncBtn("ok", "Salvo ✔");
+          setTimeout(refreshSyncIdleState, 2500);
+        } catch (e) {
+          console.error("[Drive]", e);
+          driveSyncBtn("error", "Erro automático");
+        }
+      }, 2000);
+    }
     async function driveInitialSync() {
       if (!driveState.token) return;
       const f = await driveFindFile();
@@ -2541,20 +2642,21 @@
         if (remoteTime > localTime) {
           const remoteDateStr = remote.updatedAt ? new Date(remote.updatedAt).toLocaleString("pt-BR") : "sem data";
           if (remote.prompts?.length === 0 && data.prompts?.length > 0) {
-            if (!confirm(`⚠️ AVISO CRÍTICO: O Google Drive está ZERADO, mas localmente você tem dados.\nDeseja DELETAR seus dados locais e importar o estado vazio do Drive?\n(Clique em CANCELAR para manter seus dados locais e enviá-los pro Drive).`)) {
-              await driveUpload(data, f.id);
-              return;
-            }
-          } else {
-            if (!confirm(`Google Drive tem dados mais recentes (${remoteDateStr}).\nImportar do Drive?`)) {
+            if (!confirm(`⚠️ AVISO CRÍTICO: O Google Drive está ZERADO, mas localmente você tem dados.\nDeseja DELETAR seus dados locais e importar o estado vazio do Drive?\n(Clique em CANCELAR para manter seus dados locais e uni-los ao Drive).`)) {
               await driveUpload(data, f.id);
               return;
             }
           }
           suppressAutoSync = true;
-          data = remote.version === 3 ? remote : (remote.version === 2 ? migrateV2toV3(remote) : data);
-          save(data, false); render(); toast("Dados importados do Drive ☁️");
+          const remoteNormalized = remote.version === 3 ? remote : (remote.version === 2 ? migrateV2toV3(remote) : data);
+          data = mergeData(data, remoteNormalized);
+          save(data, false); render(); toast("Dados sincronizados no Drive ☁️");
           suppressAutoSync = false;
+
+          const mergedTime = new Date(data.updatedAt || 0).getTime();
+          if (mergedTime > remoteTime) {
+            await driveUpload(data, f.id);
+          }
         } else {
           // Só sobe pro Drive se a gente já tem dados locais válidos ou confirmamos a sobrescrita
           if (data.prompts && data.prompts.length > 0) {
@@ -2606,7 +2708,20 @@
       const r = await cfFetch("POST", data);
       if (!r.ok) throw new Error(`Cloudflare POST falhou (${r.status})`);
     }
-    function cfSyncDebounced() { clearTimeout(cfState.syncTimer); cfState.syncTimer = setTimeout(() => cfSyncNow().catch(e => console.error("[Cloudflare]", e)), 2000); }
+    function cfSyncDebounced() {
+      clearTimeout(cfState.syncTimer);
+      driveSyncBtn("syncing", "Salvando...");
+      cfState.syncTimer = setTimeout(async () => {
+        try {
+          await cfSyncNow();
+          driveSyncBtn("ok", "Salvo ✔");
+          setTimeout(refreshSyncIdleState, 2500);
+        } catch (e) {
+          console.error("[Cloudflare]", e);
+          driveSyncBtn("error", "Erro automático");
+        }
+      }, 2000);
+    }
     async function cfInitialSync() {
       if (!hasCloudflareConfigured()) return;
       const r = await cfFetch("GET");
@@ -2624,20 +2739,21 @@
       if (remoteTime > localTime) {
         const remoteDateStr = remote.updatedAt ? new Date(remote.updatedAt).toLocaleString("pt-BR") : "sem data";
         if (remote.prompts?.length === 0 && data.prompts?.length > 0) {
-          if (!confirm(`⚠️ AVISO CRÍTICO: O Cloudflare está ZERADO (0 prompts), mas seu PC local tem dados.\nDeseja APAGAR seus dados locais e importar o vazio do Cloudflare?\n\n(Clique em CANCELAR para manter seus dados locais e enviá-los pro Cloudflare).`)) {
-            await cfSyncNow();
-            return;
-          }
-        } else {
-          if (!confirm(`Cloudflare tem dados mais recentes (${remoteDateStr}).\nImportar do Cloudflare?`)) {
+          if (!confirm(`⚠️ AVISO CRÍTICO: O Cloudflare está ZERADO (0 prompts), mas seu PC local tem dados.\nDeseja APAGAR seus dados locais e importar o vazio do Cloudflare?\n\n(Clique em CANCELAR para manter seus dados locais e uni-los ao Cloudflare).`)) {
             await cfSyncNow();
             return;
           }
         }
         suppressAutoSync = true;
-        data = remote.version === 3 ? remote : migrateV2toV3(remote);
-        save(data, false); render(); toast("Dados importados do Cloudflare ☁️");
+        const remoteNormalized = remote.version === 3 ? remote : migrateV2toV3(remote);
+        data = mergeData(data, remoteNormalized);
+        save(data, false); render(); toast("Dados sincronizados no Cloudflare ☁️");
         suppressAutoSync = false;
+
+        const mergedTime = new Date(data.updatedAt || 0).getTime();
+        if (mergedTime > remoteTime) {
+          await cfSyncNow();
+        }
       } else {
         if (data.prompts && data.prompts.length > 0) {
           await cfSyncNow();
@@ -2758,7 +2874,7 @@
     save = function (d, bumpTime = true) {
       _origSave(d, bumpTime);
       if (suppressAutoSync) return;
-      if (driveState.token) driveSyncDebounced();
+      if (hasGoogleConfigured()) driveSyncDebounced();
       if (hasCloudflareConfigured()) cfSyncDebounced();
     };
     window.save = save;
