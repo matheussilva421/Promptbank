@@ -645,15 +645,31 @@ let S = {
   catOrder: CATS.map(c=>c.id),
   manualOrder: {},
   draggingPromptId: null,
-  suppressNextCardClick: false,
-  manualDragRaf: null,
-  dragPointerX: 0,
-  dragPointerY: 0,
+  suppressNextCardClick: false
 };
 
 const UI_STATE_KEY = "bancoPrompts_uiState_v2";
 const CAT_ORDER_KEY = "bancoPrompts_catOrder_v1";
 const MANUAL_ORDER_KEY = "bancoPrompts_manualOrder_v1";
+const SUBCAT_ORDER_KEY = "bancoPrompts_subcatOrder_v1";
+
+function saveSubcatOrder(){ localStorage.setItem(SUBCAT_ORDER_KEY, JSON.stringify(SUBCATS.map(sc=>sc.id))); }
+function loadSubcatOrder(){
+  try{
+    const raw=localStorage.getItem(SUBCAT_ORDER_KEY);
+    if(!raw) return;
+    const parsed=JSON.parse(raw);
+    if(!Array.isArray(parsed)) return;
+    const validIds=SUBCATS.map(c=>c.id);
+    const filtered=parsed.filter(id=>validIds.includes(id));
+    validIds.forEach(id=>{ if(!filtered.includes(id)) filtered.push(id); });
+    
+    const sorted = [];
+    const map = new Map(SUBCATS.map(sc=>[sc.id,sc]));
+    filtered.forEach(id => { if(map.has(id)) sorted.push(map.get(id)); });
+    SUBCATS.splice(0, SUBCATS.length, ...sorted);
+  }catch(e){}
+}
 
 function saveUIState(){
   localStorage.setItem(UI_STATE_KEY, JSON.stringify({
@@ -781,8 +797,11 @@ function renderDock() {
       if(!dragging || dragging===d) return;
       const rect=d.getBoundingClientRect();
       const before=e.clientY < rect.top + rect.height/2;
-      if(before) el.insertBefore(dragging,d);
-      else el.insertBefore(dragging,d.nextSibling);
+      if(before) {
+        if(dragging.nextSibling !== d) el.insertBefore(dragging,d);
+      } else {
+        if(dragging.previousSibling !== d) el.insertBefore(dragging,d.nextSibling);
+      }
     });
     d.addEventListener("drop",e=>{
       e.preventDefault();
@@ -831,8 +850,11 @@ function renderSidePanel() {
         if(!dragging || dragging===item || !dragging.dataset.subcatId) return;
         const rect=item.getBoundingClientRect();
         const before=e.clientY < rect.top + rect.height/2;
-        if(before) nav.insertBefore(dragging,item);
-        else nav.insertBefore(dragging,item.nextSibling);
+        if(before) {
+          if (dragging.nextSibling !== item) nav.insertBefore(dragging,item);
+        } else {
+          if (dragging.previousSibling !== item) nav.insertBefore(dragging,item.nextSibling);
+        }
       });
       item.addEventListener("drop",e=>{
         e.preventDefault();
@@ -840,6 +862,7 @@ function renderSidePanel() {
         if(ordered.length===SUBCATS.length){
           const map=new Map(SUBCATS.map(sc=>[sc.id,sc]));
           SUBCATS.splice(0,SUBCATS.length,...ordered.map(id=>map.get(id)).filter(Boolean));
+          saveSubcatOrder();
           renderSidePanel();
         }
       });
@@ -979,51 +1002,48 @@ function renderMain() {
   if(S.promptSort==="manual"){
     grid.ondragover=e=>{
       e.preventDefault();
-      S.dragPointerX=e.clientX;
-      S.dragPointerY=e.clientY;
-      if(S.manualDragRaf) return;
-      S.manualDragRaf=requestAnimationFrame(()=>{
-        S.manualDragRaf=null;
-        const dragging=S.draggingPromptId ? grid.querySelector(`.prompt-card[data-prompt-id="${S.draggingPromptId}"]`) : null;
-        if(!dragging) return;
-
-        const cards=[...grid.querySelectorAll(".prompt-card:not(.dragging)")];
-        if(!cards.length){
-          grid.appendChild(dragging);
-          return;
+      const dragging = S.draggingPromptId ? grid.querySelector(`.prompt-card[data-prompt-id="${S.draggingPromptId}"]`) : null;
+      if (!dragging) return;
+      
+      const targetCard = e.target.closest('.prompt-card');
+      if (targetCard && targetCard !== dragging && !targetCard.classList.contains('dragging')) {
+        const rect = targetCard.getBoundingClientRect();
+        const cy = rect.top + rect.height/2;
+        const cx = rect.left + rect.width/2;
+        let before = false;
+        
+        if (Math.abs(e.clientY - cy) > 12) {
+          before = e.clientY < cy;
+        } else {
+          before = e.clientX < cx;
         }
-
-        let bestCard=null;
-        let bestDist=Number.POSITIVE_INFINITY;
-        cards.forEach(card=>{
-          const r=card.getBoundingClientRect();
-          const cx=r.left+r.width/2;
-          const cy=r.top+r.height/2;
-          const dist=Math.hypot(S.dragPointerX-cx,S.dragPointerY-cy);
-          if(dist<bestDist){
-            bestDist=dist;
-            bestCard=card;
-          }
-        });
-
-        if(!bestCard){
-          grid.appendChild(dragging);
-          return;
+        
+        if (before) {
+          if (dragging.nextSibling !== targetCard) grid.insertBefore(dragging, targetCard);
+        } else {
+          if (dragging.previousSibling !== targetCard) grid.insertBefore(dragging, targetCard.nextSibling);
         }
-
-        const rect=bestCard.getBoundingClientRect();
-        const pointerBefore = S.dragPointerY < rect.top + rect.height/2 || (Math.abs(S.dragPointerY-(rect.top+rect.height/2))<12 && S.dragPointerX < rect.left + rect.width/2);
-        if(pointerBefore) grid.insertBefore(dragging,bestCard);
-        else grid.insertBefore(dragging,bestCard.nextSibling);
-      });
+      } else if (!targetCard && e.target === grid) {
+         const cards = grid.querySelectorAll('.prompt-card:not(.dragging)');
+         if (cards.length > 0) {
+             const lastCard = cards[cards.length - 1];
+             const rect = lastCard.getBoundingClientRect();
+             if (e.clientY > rect.bottom || (e.clientY >= rect.top && e.clientX > rect.right)) {
+                 if (dragging.previousSibling !== lastCard) grid.appendChild(dragging);
+             }
+         } else {
+             grid.appendChild(dragging);
+         }
+      }
     };
 
     grid.ondrop=e=>{
       e.preventDefault();
-      setManualIdsForCurrent([...grid.querySelectorAll(".prompt-card")].map(c=>c.dataset.promptId));
-      S.draggingPromptId=null;
-      if(S.manualDragRaf){ cancelAnimationFrame(S.manualDragRaf); S.manualDragRaf=null; }
-      renderMain();
+      if(S.draggingPromptId) {
+          setManualIdsForCurrent([...grid.querySelectorAll(".prompt-card")].map(c=>c.dataset.promptId));
+          S.draggingPromptId=null;
+          renderMain();
+      }
     };
   }
 }
@@ -1082,7 +1102,6 @@ function buildCard(p) {
     handle.addEventListener("dragend",()=>{
       card.classList.remove("dragging");
       S.draggingPromptId=null;
-      if(S.manualDragRaf){ cancelAnimationFrame(S.manualDragRaf); S.manualDragRaf=null; }
       setTimeout(()=>{ S.suppressNextCardClick=false; }, 80);
     });
   }
@@ -1318,6 +1337,7 @@ document.addEventListener("keydown",e=>{
 // ── Boot ──
 loadCatOrder();
 loadManualOrder();
+loadSubcatOrder();
 loadUIState();
 render();
 </script>
