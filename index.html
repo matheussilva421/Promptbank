@@ -66,6 +66,7 @@
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      transition: background 0.25s ease, border-color 0.25s ease, color 0.1s ease;
     }
 
     html,
@@ -998,6 +999,13 @@
       gap: 5px;
     }
 
+    .drawer.expanded {
+      width: 100vw;
+      max-width: none;
+      right: 0;
+      box-shadow: none;
+    }
+
     .drawer-body {
       flex: 1;
       overflow-y: auto;
@@ -1499,6 +1507,17 @@
 
 <body>
 
+  <!-- ══ COMMAND PALETTE MODAL ══ -->
+  <div class="modal-overlay" id="paletteOverlay">
+    <div class="modal" style="width: min(600px, 95vw); margin-top: 5vh; max-height: 70vh;">
+      <div class="modal-head" style="padding: 12px 16px; border:none;">
+        <input type="text" id="paletteInput" placeholder="Buscar comandos ou prompts... (Seta ↑↓, Enter para abrir)"
+          style="width: 100%; padding: 12px; font-size: 16px; border-radius: 8px; background: var(--bg3); border: 1px solid var(--line2);">
+      </div>
+      <div class="modal-body" id="paletteResults" style="padding: 0 8px 8px; min-height: 200px;"></div>
+    </div>
+  </div>
+
   <div id="toasts"></div>
 
   <div class="app">
@@ -1580,7 +1599,10 @@
       <div class="drawer-head">
         <div class="drawer-head-top">
           <div class="drawer-title" id="drawerTitle"></div>
-          <button class="drawer-close" id="btnCloseDrawer">✕</button>
+          <div style="display:flex;gap:4px;">
+            <button class="drawer-close" id="btnExpandDrawer" title="Expandir/Reduzir Tela Cheia">⛶</button>
+            <button class="drawer-close" id="btnCloseDrawer">✕</button>
+          </div>
         </div>
         <div class="drawer-meta" id="drawerMeta"></div>
       </div>
@@ -1599,7 +1621,7 @@
           <button class="btn ghost icon" id="btnCloseEditor">✕</button>
         </div>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" id="modalEditorBody">
         <div class="field">
           <label for="e_title">Título *</label>
           <input type="text" id="e_title" placeholder="Título do prompt">
@@ -1872,10 +1894,10 @@
       html = html.replace(/^###\s+(.+)$/gm, '<h3 style="margin-top:1em;margin-bottom:.5em;">$1</h3>');
       html = html.replace(/^##\s+(.+)$/gm, '<h2 style="margin-top:1em;margin-bottom:.5em;">$1</h2>');
       html = html.replace(/^#\s+(.+)$/gm, '<h1 style="margin-top:1em;margin-bottom:.5em;">$1</h1>');
-      // Bold
-      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      // Bold (using lookbehind check for standard escaped tags so it won't trigger html injection if user uses **)
+      html = html.replace(/\*\*(?!&[a-z]{1,5};)([^<]+?)\*\*/g, "<strong>$1</strong>");
       // Italic
-      html = html.replace(/\*([^\n*]+)\*/g, '<em>$1</em>');
+      html = html.replace(/\*(?!&[a-z]{1,5};)([^<]+?)\*/g, "<em>$1</em>");
       html = html.replace(/_([^\n_]+)_/g, '<em>$1</em>');
       // Code inline
       html = html.replace(/`([^`\n]+)`/g, '<code style="background:var(--bg3);padding:2px 4px;border-radius:4px;">$1</code>');
@@ -2467,7 +2489,15 @@
             renderSidePanel(); renderMain();
           });
           chips4.appendChild(c);
+          chips4.appendChild(c);
         });
+      }
+
+      if (S.sideSearch && !formatosUsed.length && !statusUsed.length && !topTags.length && !aisUsed.length) {
+        const noRes = document.createElement("div");
+        noRes.style.cssText = "padding:20px;text-align:center;color:var(--t3);font-size:12px;font-style:italic;";
+        noRes.textContent = "Nenhum resultado...";
+        body.appendChild(noRes);
       }
     }
 
@@ -2542,6 +2572,15 @@
                 save(data); renderMain();
               }
             }
+            else if (action === "tag-filter" && e.target.classList.contains("tag")) {
+              e.stopPropagation();
+              const t = e.target.dataset.tag;
+              if (t && !S.filterTags.includes(t)) {
+                S.filterTags.push(t);
+                saveUIState();
+                renderSidePanel(); renderMain();
+              }
+            }
             return;
           }
           if (S.suppressNextCardClick) return;
@@ -2553,7 +2592,8 @@
       if (!ps.length) {
         const e = document.createElement("div"); e.className = "empty-state";
         const catObj = CATS.find(c => c.id === S.cat);
-        e.innerHTML = `<div class="empty-icon">${catObj?.icon || "📂"}</div><div class="empty-title">${hasActiveFilters() ? "Nenhum resultado" : "Nenhum prompt aqui ainda"}</div><div class="empty-sub">${hasActiveFilters() ? "Tente limpar os filtros" : "Clique em + Novo Prompt para começar"}</div>`;
+        const btnHtml = hasActiveFilters() ? `<button class="btn ghost sm" onclick="$('#btnClearFilters').click()" style="margin-top:10px;">Limpar Filtros</button>` : `<button class="btn primary sm" onclick="openEditor()" style="margin-top:10px;">+ Criar Novo Prompt</button>`;
+        e.innerHTML = `<div class="empty-icon">${catObj?.icon || "📂"}</div><div class="empty-title">${hasActiveFilters() ? "Nenhum resultado" : "Nenhum prompt aqui ainda"}</div><div class="empty-sub">${hasActiveFilters() ? "Tente limpar os filtros" : "Clique abaixo para começar"}</div>${btnHtml}`;
         grid.appendChild(e);
         return;
       }
@@ -2685,7 +2725,7 @@
       ${syncStatusHtml}
     </div>
     ${p.quandoUsar ? `<div class="card-when" style="color:var(--t3);font-size:11.5px;">Quando usar: ${esc(p.quandoUsar)}</div>` : ""}
-    ${visibleTags.length ? `<div class="card-tags">${visibleTags.map(t => `<span class="tag">#${esc(t)}</span>`).join("")}${(p.tags || []).length > 4 ? `<span class="tag">+${(p.tags || []).length - 4}</span>` : ""}</div>` : ""}
+    ${visibleTags.length ? `<div class="card-tags" data-action="tag-filter">${visibleTags.map(t => `<span class="tag" data-tag="${esc(t)}">#${esc(t)}</span>`).join("")}${(p.tags || []).length > 4 ? `<span class="tag">+${(p.tags || []).length - 4}</span>` : ""}</div>` : ""}
     <div class="card-actions">
       <button class="card-btn" data-action="edit">✏️ Editar</button>
       <button class="card-btn" data-action="dupe">🔁 Duplicar</button>
@@ -2723,6 +2763,7 @@
       $("#drawerTitle").textContent = p.title;
       const meta = $("#drawerMeta"); meta.innerHTML = "";
       const addBadge = (label, cls) => { const b = document.createElement("span"); b.className = `badge ${cls}`; b.textContent = label; meta.appendChild(b); };
+      if (p.pinned) addBadge("⭐", "badge-teste");
       addBadge(statusLabel, "badge-" + (p.status || "teste"));
       if (formatoLabel) addBadge(formatoLabel, "badge-formato");
       if (cat) addBadge(cat.icon + " " + cat.name, "badge-formato");
@@ -2817,12 +2858,21 @@
       snapshotEditorInitialValues();
       $("#editorOverlay").classList.add("show");
       updateTextCounter();
+
+      const eBody = $("#modalEditorBody");
+      if (eBody) {
+        eBody.onscroll = () => {
+          if (eBody.scrollTop > 10) eBody.style.boxShadow = "inset 0 10px 10px -10px rgba(0,0,0,0.5)";
+          else eBody.style.boxShadow = "none";
+        };
+      }
+
       setTimeout(() => $("#e_title").focus(), 150);
     }
 
     function updateTextCounter() {
       const len = ($("#e_text").value || "").length;
-      $("#e_text_counter").textContent = `${len} chars | ~${Math.ceil(len / 4)} tokens`;
+      $("#e_text_counter").textContent = `${len} chars | ~${Math.ceil(len / 3.4)} tokens`;
     }
     $("#e_text").addEventListener("input", updateTextCounter);
     function editorHasChanges() {
@@ -2850,6 +2900,70 @@
     $("#btnCloseEditor").addEventListener("click", closeEditor);
     $("#btnCancelEditor").addEventListener("click", closeEditor);
     $("#editorOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeEditor(); });
+
+    // ── Command Palette ──
+    let _paletteIdx = 0;
+    function openPalette() {
+      $("#paletteInput").value = "";
+      renderPalette("");
+      $("#paletteOverlay").classList.add("show");
+      setTimeout(() => $("#paletteInput").focus(), 10);
+    }
+    function closePalette() { $("#paletteOverlay").classList.remove("show"); }
+    $("#paletteOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closePalette(); });
+
+    function renderPalette(q = "") {
+      const results = $("#paletteResults"); results.innerHTML = "";
+      const query = q.toLowerCase().trim();
+      const items = [];
+
+      // Static Commands
+      items.push({ icon: "⚡", label: "Novo Prompt", action: () => openEditor() });
+      items.push({ icon: "📊", label: "Estatísticas", action: () => $("#btnStats").click() });
+      items.push({ icon: "⚙️", label: "Configurações", action: () => openDriveSetupModal() });
+
+      // Prompts
+      allPrompts().forEach(p => {
+        if (!query || p.title.toLowerCase().includes(query) || (p.tags || []).some(t => t.toLowerCase().includes(query))) {
+          items.push({ icon: "📄", label: p.title, sub: p.categoria, action: () => openDrawer(p.id) });
+        }
+      });
+
+      const filtered = items.slice(0, 50);
+      _paletteIdx = Math.min(_paletteIdx, filtered.length - 1);
+      if (_paletteIdx < 0) _paletteIdx = 0;
+
+      if (!filtered.length) {
+        results.innerHTML = `<div style="padding:40px;text-align:center;color:var(--t3);">Nenhum resultado...</div>`;
+        return;
+      }
+
+      filtered.forEach((it, i) => {
+        const d = document.createElement("div");
+        d.className = "palette-item" + (i === _paletteIdx ? " active" : "");
+        d.style.cssText = "display:flex;align-items:center;gap:12px;padding:10px 12px;cursor:pointer;border-radius:8px;margin-bottom:2px;";
+        if (i === _paletteIdx) d.style.background = "var(--blue-g)";
+        d.innerHTML = `<span style="font-size:18px;">${it.icon}</span><div style="flex:1;"><div style="font-weight:600;font-size:14px;">${esc(it.label)}</div>${it.sub ? `<div style="font-size:11px;color:var(--t3);">${esc(it.sub)}</div>` : ""}</div>`;
+        d.addEventListener("click", () => { closePalette(); it.action(); });
+        results.appendChild(d);
+      });
+    }
+
+    $("#paletteInput").addEventListener("input", e => { _paletteIdx = 0; renderPalette(e.target.value); });
+    $("#paletteInput").addEventListener("keydown", e => {
+      const items = $("#paletteResults").children;
+      if (e.key === "ArrowDown") {
+        e.preventDefault(); _paletteIdx = (_paletteIdx + 1) % items.length; renderPalette($("#paletteInput").value);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault(); _paletteIdx = (_paletteIdx - 1 + items.length) % items.length; renderPalette($("#paletteInput").value);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const active = $("#paletteResults").querySelector(".palette-item.active");
+        if (active) active.click();
+      } else if (e.key === "Escape") {
+        closePalette();
+      }
+    });
     $("#e_categoria").addEventListener("change", toggleSubcatField);
 
     $("#btnPinEditor").addEventListener("click", () => {
@@ -3005,6 +3119,7 @@
     const closeStats = () => $("#statsModal").classList.remove("show");
     $("#btnCloseStats").addEventListener("click", closeStats);
     $("#btnStatsOk").addEventListener("click", closeStats);
+    $("#statsModal").addEventListener("click", e => { if (e.target === e.currentTarget) closeStats(); });
 
     // ── Actions ──
     let pendingCopyText = "";
@@ -3027,15 +3142,16 @@
         });
 
         pendingCopyText = text;
+        pendingCopyId = id;
         $("#varModal").classList.add("show");
         setTimeout(() => container.querySelector("input")?.focus(), 100);
       } else {
-        doCopy(text);
+        doCopy(text, id);
       }
     }
 
-    function doCopy(text) {
-      const p = allPrompts().find(x => x.text === text || (x.text && text.includes(x.text.slice(0, 20))));
+    function doCopy(text, sourceId = null) {
+      const p = sourceId ? allPrompts().find(x => x.id === sourceId) : allPrompts().find(x => x.text === text);
       if (p) {
         p.lastCopiedAt = nowISO();
         save(data, false);
@@ -3043,8 +3159,8 @@
       navigator.clipboard.writeText(text).then(() => toast("Copiado ✅")).catch(() => toast("Erro ao copiar ❌"));
     }
 
-    $("#btnCancelVarModal").addEventListener("click", () => { $("#varModal").classList.remove("show"); });
-    $("#varModal").addEventListener("click", e => { if (e.target === e.currentTarget) $("#varModal").classList.remove("show"); });
+    $("#btnCancelVarModal").addEventListener("click", () => { pendingCopyText = ""; $("#varModal").classList.remove("show"); });
+    $("#varModal").addEventListener("click", e => { if (e.target === e.currentTarget) { pendingCopyText = ""; $("#varModal").classList.remove("show"); } });
     $("#btnConfirmVarModal").addEventListener("click", () => {
       let finalTxt = pendingCopyText;
       const inputs = document.querySelectorAll("#varFieldsContainer input");
@@ -3053,7 +3169,7 @@
         const val = inp.value || `{{${v}}}`;
         finalTxt = finalTxt.replaceAll(`{{${v}}}`, val);
       });
-      doCopy(finalTxt);
+      doCopy(finalTxt, pendingCopyId);
       $("#varModal").classList.remove("show");
     });
     function duplicatePrompt(id) {
@@ -3136,7 +3252,7 @@
       if (cmd && k === "enter") { if ($("#editorOverlay").classList.contains("show")) { e.preventDefault(); $("#btnSavePrompt").click(); } }
       if (cmd && k === "k") {
         e.preventDefault();
-        $("#globalSearch").focus();
+        openPalette();
       }
       if (cmd && k === "n") {
         const tag = (document.activeElement?.tagName || "").toLowerCase();
@@ -3147,6 +3263,12 @@
         e.preventDefault();
         $("#shortcutsModal").classList.add("show");
       }
+      if (cmd && k === "d") {
+        if (S.openPromptId && !$("#editorOverlay").classList.contains("show")) {
+          e.preventDefault();
+          duplicatePrompt(S.openPromptId);
+        }
+      }
     });
 
     // ── Boot ──
@@ -3155,6 +3277,17 @@
     loadSubcatOrder();
     loadUIState();
 
+    window.addEventListener("beforeunload", e => {
+      if (editorHasChanges()) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+      if (typeof _lsTimer !== "undefined") {
+        clearTimeout(_lsTimer);
+        localStorage.setItem(LS_KEY_V3, JSON.stringify(data));
+      }
+    });
+
     // Deep Linking intercept
     function handleHash(isBoot = false) {
       const hash = window.location.hash.substring(1);
@@ -3162,6 +3295,7 @@
         const p = allPrompts().find(x => x.id === hash);
         if (p) {
           S.cat = (p.status === "arquivado" || p.categoria === "arquivados") ? "arquivados" : (EDITABLE_CATS.some(c => c.id === p.categoria) ? p.categoria : "analise");
+          if (p.subcategoria) S.subcat = p.subcategoria;
           saveUIState();
           if (!isBoot) render();
           setTimeout(() => openDrawer(hash), 50);
@@ -3491,16 +3625,18 @@
     document.getElementById("btnDriveSetupClose").addEventListener("click", closeDriveSetupModal);
     document.getElementById("driveSetupModal").addEventListener("click", e => { if (e.target === e.currentTarget) closeDriveSetupModal(); });
 
-    document.getElementById("btnDriveSetupDisconnect").addEventListener("click", () => {
-      if (!confirm("Desconectar Google Drive?")) return;
+    document.getElementById("btnDriveSetupDisconnect").addEventListener("click", async () => {
+      const ok = await customConfirm("Desconectar", "Desconectar Google Drive?");
+      if (!ok) return;
       driveState = { ...driveState, clientId: "", token: null, fileId: null, tokenClient: null };
       localStorage.removeItem(GDRIVE_LS_KEY);
       document.getElementById("driveClientIdInput").value = "";
       openDriveSetupModal();
       refreshSyncIdleState();
     });
-    document.getElementById("btnCfSetupDisconnect").addEventListener("click", () => {
-      if (!confirm("Desconectar Cloudflare?")) return;
+    document.getElementById("btnCfSetupDisconnect").addEventListener("click", async () => {
+      const ok = await customConfirm("Desconectar", "Desconectar Cloudflare?");
+      if (!ok) return;
       cfState = { ...cfState, url: "", token: "" };
       localStorage.removeItem(CFSYNC_URL_KEY); localStorage.removeItem(CFSYNC_TOKEN_KEY);
       document.getElementById("cfSyncUrlInput").value = "";
