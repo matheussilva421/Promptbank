@@ -714,13 +714,40 @@
       flex-shrink: 0;
     }
 
-    .prompt-card:hover .card-copy-quick {
+    .card-pin-quick {
+      opacity: 0;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 4px;
+      color: var(--t3);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      line-height: 1;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .card-pin-quick.is-pinned {
+      opacity: 1;
+      color: var(--amber);
+    }
+
+    .prompt-card:hover .card-copy-quick,
+    .prompt-card:hover .card-pin-quick {
       opacity: 1;
     }
 
     .card-copy-quick:hover {
       color: var(--blue);
       border-color: var(--blue);
+      transform: scale(1.1);
+    }
+
+    .card-pin-quick:hover {
+      color: var(--amber);
       transform: scale(1.1);
     }
 
@@ -1477,7 +1504,10 @@
     <div class="modal">
       <div class="modal-head">
         <h2 id="editorTitle">Novo Prompt</h2>
-        <button class="btn ghost icon" id="btnCloseEditor">✕</button>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button class="btn ghost icon" id="btnPinEditor" title="Fixar prompt">⭐</button>
+          <button class="btn ghost icon" id="btnCloseEditor">✕</button>
+        </div>
       </div>
       <div class="modal-body">
         <div class="field">
@@ -2003,16 +2033,26 @@
     }
     function filteredPrompts() {
       const ps = filteredPromptsBase().slice();
-      if (S.promptSort === "title-asc") return ps.sort((a, b) => (a.title || "").localeCompare((b.title || ""), "pt-BR"));
-      if (S.promptSort === "manual") {
+      let sorted;
+
+      if (S.promptSort === "title-asc") {
+        sorted = ps.sort((a, b) => (a.title || "").localeCompare((b.title || ""), "pt-BR"));
+      } else if (S.promptSort === "manual") {
         const manualIds = getManualIdsForCurrent();
         const byId = new Map(ps.map(p => [p.id, p]));
         const ordered = [];
         manualIds.forEach(id => { if (byId.has(id)) { ordered.push(byId.get(id)); byId.delete(id); } });
         const rest = [...byId.values()].sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
-        return [...ordered, ...rest];
+        sorted = [...ordered, ...rest];
+      } else {
+        sorted = ps.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
       }
-      return ps.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+
+      // Always float pinned items to top unless manual sort
+      if (S.promptSort !== "manual") {
+        sorted.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+      }
+      return sorted;
     }
     function hasActiveFilters() {
       return S.search || S.sideSearch || S.filterFormato || S.filterStatus || S.filterTags.length || S.filterAis.length;
@@ -2316,14 +2356,24 @@
       const cat = CATS.find(c => c.id === p.categoria);
       const subcat = SUBCATS.find(s => s.id === p.subcategoria);
 
+      let cardTitle = esc(p.title);
+      const query = (S.search || S.sideSearch).trim();
+      if (query) {
+        try {
+          const r = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi");
+          cardTitle = cardTitle.replace(r, "<mark>$1</mark>");
+        } catch (e) { }
+      }
+
       card.innerHTML = `
     <div class="card-top">
       <div class="card-title-wrap">
         <span class="card-drag-handle" title="Arrastar card" draggable="true" data-action="drag-handle">⋮⋮</span>
-        <div class="card-title">${esc(p.title)}</div>
+        <div class="card-title">${cardTitle}</div>
       </div>
       <div style="display:flex; gap:4px; align-items:center;">
         ${p.ai ? `<div class="card-ai">${esc(p.ai.toUpperCase())}</div>` : ""}
+        <button class="card-pin-quick ${p.pinned ? 'is-pinned' : ''}" data-action="pin" title="Fixar prompt">${p.pinned ? '⭐' : '☆'}</button>
         <button class="card-copy-quick" data-action="copy" title="Copiar prompt">📋</button>
       </div>
     </div>
@@ -2347,6 +2397,15 @@
       card.querySelector("[data-action=copy]").addEventListener("click", e => { e.stopPropagation(); copyPrompt(p.id); });
       card.querySelector("[data-action=edit]").addEventListener("click", e => { e.stopPropagation(); openEditor(p.id); });
       card.querySelector("[data-action=dupe]").addEventListener("click", e => { e.stopPropagation(); duplicatePrompt(p.id); });
+      card.querySelector("[data-action=pin]").addEventListener("click", e => {
+        e.stopPropagation();
+        const promptToPin = data.prompts.find(x => x.id === p.id);
+        if (promptToPin) {
+          promptToPin.pinned = !promptToPin.pinned;
+          promptToPin.updatedAt = nowISO();
+          save(data); renderMain();
+        }
+      });
       if (S.promptSort === "manual") {
         const handle = card.querySelector('[data-action="drag-handle"]');
         handle.addEventListener("dragstart", e => {
@@ -2416,19 +2475,33 @@
       const btnCopy = document.createElement("button"); btnCopy.className = "btn primary"; btnCopy.textContent = "📋 Copiar"; btnCopy.addEventListener("click", () => copyPrompt(id));
       const btnEdit = document.createElement("button"); btnEdit.className = "btn ghost"; btnEdit.textContent = "✏️ Editar"; btnEdit.addEventListener("click", () => { closeDrawer(); setTimeout(() => openEditor(id), 10); });
       const btnDupe = document.createElement("button"); btnDupe.className = "btn ghost"; btnDupe.textContent = "🔁 Duplicar"; btnDupe.addEventListener("click", () => { duplicatePrompt(id); closeDrawer(); });
-      footer.appendChild(btnCopy); footer.appendChild(btnEdit); footer.appendChild(btnDupe);
+      const btnExportSingle = document.createElement("button"); btnExportSingle.className = "btn ghost"; btnExportSingle.textContent = "⬇️ Exportar"; btnExportSingle.addEventListener("click", () => exportSinglePrompt(id));
+      footer.appendChild(btnCopy); footer.appendChild(btnEdit); footer.appendChild(btnDupe); footer.appendChild(btnExportSingle);
 
       $("#drawerOverlay").classList.add("open");
+      window.history.replaceState(null, "", `#${id}`);
     }
-    function closeDrawer() { $("#drawerOverlay").classList.remove("open"); S.openPromptId = null; }
+    function closeDrawer() {
+      $("#drawerOverlay").classList.remove("open");
+      S.openPromptId = null;
+      window.history.replaceState(null, "", window.location.pathname);
+    }
     $("#btnCloseDrawer").addEventListener("click", closeDrawer);
     $("#drawerOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeDrawer(); });
 
     // ── Editor ──
+    let _editorPinned = false;
     function openEditor(id) {
       const p = id ? allPrompts().find(x => x.id === id) : null;
       S.editingId = id || null;
+      _editorPinned = p?.pinned || false;
+
       $("#editorTitle").textContent = p ? "Editar Prompt" : "Novo Prompt";
+      const btnPin = $("#btnPinEditor");
+      if (btnPin) {
+        btnPin.textContent = _editorPinned ? "⭐" : "☆";
+        btnPin.style.color = _editorPinned ? "var(--amber)" : "";
+      }
       $("#btnDeletePrompt").style.display = p ? "" : "none";
 
       // Populate categoria select
@@ -2472,6 +2545,13 @@
     $("#editorOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeEditor(); });
     $("#e_categoria").addEventListener("change", toggleSubcatField);
 
+    $("#btnPinEditor").addEventListener("click", () => {
+      _editorPinned = !_editorPinned;
+      const btnPin = $("#btnPinEditor");
+      btnPin.textContent = _editorPinned ? "⭐" : "☆";
+      btnPin.style.color = _editorPinned ? "var(--amber)" : "";
+    });
+
     function toggleSubcatField() {
       const subcatEl = $("#e_subcategoria");
       const field = subcatEl?.closest(".field");
@@ -2510,6 +2590,7 @@
         naoUsarQuando: $("#e_nao_quando").value.trim(),
         saidaEsperada: $("#e_saida").value.trim(),
         note: $("#e_note").value.trim(),
+        pinned: _editorPinned,
         updatedAt: nowISO(),
         createdAt: S.editingId ? (allPrompts().find(x => x.id === S.editingId)?.createdAt || nowISO()) : nowISO(),
       };
@@ -2593,10 +2674,16 @@
     });
     function duplicatePrompt(id) {
       const p = allPrompts().find(x => x.id === id); if (!p) return;
-      const copy = { ...p, id: uid(), title: "[Cópia] " + p.title, status: "teste", createdAt: nowISO(), updatedAt: nowISO() };
+      const copy = { ...p, id: uid(), title: "[Cópia] " + p.title, status: "teste", pinned: false, createdAt: nowISO(), updatedAt: nowISO() };
       data.prompts.push(copy); save(data); render();
       toast("Prompt duplicado 🔁");
       openEditor(copy.id);
+    }
+
+    function exportSinglePrompt(id) {
+      const p = allPrompts().find(x => x.id === id); if (!p) return;
+      dl(`prompt_${p.id}.json`, JSON.stringify(p, null, 2));
+      toast("Prompt exportado ⬇️");
     }
 
     // ── New prompt button ──
@@ -2673,6 +2760,24 @@
     loadSubcatOrder();
     loadUIState();
     render();
+
+    // Deep Linking intercept
+    function handleHash() {
+      const hash = window.location.hash.substring(1);
+      if (hash) {
+        const p = allPrompts().find(x => x.id === hash);
+        if (p) {
+          S.cat = (p.status === "arquivado" || p.categoria === "arquivados") ? "arquivados" : (EDITABLE_CATS.some(c => c.id === p.categoria) ? p.categoria : "analise");
+          saveUIState();
+          render();
+          openDrawer(hash);
+        } else {
+          window.history.replaceState(null, "", window.location.pathname);
+        }
+      }
+    }
+    window.addEventListener("hashchange", handleHash);
+    setTimeout(handleHash, 100);
   </script>
 
   <!-- ══ GOOGLE DRIVE + CLOUDFLARE SYNC ══ -->
