@@ -646,6 +646,9 @@ let S = {
   manualOrder: {},
   draggingPromptId: null,
   suppressNextCardClick: false,
+  manualDragRaf: null,
+  dragPointerX: 0,
+  dragPointerY: 0,
 };
 
 const UI_STATE_KEY = "bancoPrompts_uiState_v2";
@@ -957,7 +960,10 @@ function renderMain() {
   $("#btnClearFilters").style.display=hasActiveFilters()?"":"none";
 
   // Grid
-  const grid=$("#promptGrid"); grid.innerHTML="";
+  const grid=$("#promptGrid");
+  grid.innerHTML="";
+  grid.ondragover=null;
+  grid.ondrop=null;
   const ps=filteredPrompts();
 
   if(!ps.length){
@@ -971,47 +977,54 @@ function renderMain() {
   ps.forEach(p=>grid.appendChild(buildCard(p)));
 
   if(S.promptSort==="manual"){
-    grid.addEventListener("dragover",e=>{
+    grid.ondragover=e=>{
       e.preventDefault();
-      const dragging=S.draggingPromptId ? grid.querySelector(`.prompt-card[data-prompt-id="${S.draggingPromptId}"]`) : null;
-      if(!dragging) return;
+      S.dragPointerX=e.clientX;
+      S.dragPointerY=e.clientY;
+      if(S.manualDragRaf) return;
+      S.manualDragRaf=requestAnimationFrame(()=>{
+        S.manualDragRaf=null;
+        const dragging=S.draggingPromptId ? grid.querySelector(`.prompt-card[data-prompt-id="${S.draggingPromptId}"]`) : null;
+        if(!dragging) return;
 
-      const cards=[...grid.querySelectorAll(".prompt-card:not(.dragging)")];
-      if(!cards.length){
-        grid.appendChild(dragging);
-        return;
-      }
-
-      let bestCard=null;
-      let bestDist=Number.POSITIVE_INFINITY;
-      cards.forEach(card=>{
-        const r=card.getBoundingClientRect();
-        const cx=r.left+r.width/2;
-        const cy=r.top+r.height/2;
-        const dist=Math.hypot(e.clientX-cx,e.clientY-cy);
-        if(dist<bestDist){
-          bestDist=dist;
-          bestCard=card;
+        const cards=[...grid.querySelectorAll(".prompt-card:not(.dragging)")];
+        if(!cards.length){
+          grid.appendChild(dragging);
+          return;
         }
+
+        let bestCard=null;
+        let bestDist=Number.POSITIVE_INFINITY;
+        cards.forEach(card=>{
+          const r=card.getBoundingClientRect();
+          const cx=r.left+r.width/2;
+          const cy=r.top+r.height/2;
+          const dist=Math.hypot(S.dragPointerX-cx,S.dragPointerY-cy);
+          if(dist<bestDist){
+            bestDist=dist;
+            bestCard=card;
+          }
+        });
+
+        if(!bestCard){
+          grid.appendChild(dragging);
+          return;
+        }
+
+        const rect=bestCard.getBoundingClientRect();
+        const pointerBefore = S.dragPointerY < rect.top + rect.height/2 || (Math.abs(S.dragPointerY-(rect.top+rect.height/2))<12 && S.dragPointerX < rect.left + rect.width/2);
+        if(pointerBefore) grid.insertBefore(dragging,bestCard);
+        else grid.insertBefore(dragging,bestCard.nextSibling);
       });
+    };
 
-      if(!bestCard){
-        grid.appendChild(dragging);
-        return;
-      }
-
-      const rect=bestCard.getBoundingClientRect();
-      const pointerBefore = e.clientY < rect.top + rect.height/2 || (Math.abs(e.clientY-(rect.top+rect.height/2))<12 && e.clientX < rect.left + rect.width/2);
-      if(pointerBefore) grid.insertBefore(dragging,bestCard);
-      else grid.insertBefore(dragging,bestCard.nextSibling);
-    });
-
-    grid.addEventListener("drop",e=>{
+    grid.ondrop=e=>{
       e.preventDefault();
       setManualIdsForCurrent([...grid.querySelectorAll(".prompt-card")].map(c=>c.dataset.promptId));
       S.draggingPromptId=null;
+      if(S.manualDragRaf){ cancelAnimationFrame(S.manualDragRaf); S.manualDragRaf=null; }
       renderMain();
-    });
+    };
   }
 }
 
@@ -1069,6 +1082,7 @@ function buildCard(p) {
     handle.addEventListener("dragend",()=>{
       card.classList.remove("dragging");
       S.draggingPromptId=null;
+      if(S.manualDragRaf){ cancelAnimationFrame(S.manualDragRaf); S.manualDragRaf=null; }
       setTimeout(()=>{ S.suppressNextCardClick=false; }, 80);
     });
   }
