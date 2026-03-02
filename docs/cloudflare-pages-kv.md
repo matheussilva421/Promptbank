@@ -200,3 +200,6 @@ Fluxo esperado:
 - Restrinja `ALLOWED_ORIGIN` ao domínio do app.
 - Considere chave por usuário (`banco_prompts_v3:<userId>`) se houver multiusuário.
 - Para histórico/auditoria, avalie **D1** ou **R2** além do KV.
+
+
+> Nota: para deploy em Cloudflare Pages/Workers Static Assets, o arquivo de entrada deve ser `index.html` na raiz.
