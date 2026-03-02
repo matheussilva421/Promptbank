@@ -1007,14 +1007,26 @@
 
     .drawer-text {
       font-size: 13px;
-      line-height: 1.75;
-      white-space: pre-wrap;
-      font-family: var(--mono);
+      line-height: 1.6;
+      color: var(--t2);
       background: var(--bg2);
-      border: 1px solid var(--line);
-      border-radius: var(--r2);
-      padding: 14px;
-      color: var(--t1);
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid var(--line2);
+      margin-bottom: 24px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: var(--font);
+    }
+
+    .drawer-text strong {
+      font-weight: 700;
+      color: var(--blue);
+    }
+
+    .drawer-text em {
+      font-style: italic;
+      color: var(--t2);
     }
 
     .drawer-section-label {
@@ -1744,6 +1756,16 @@
     const fmt = iso => { try { return new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }); } catch (e) { return "—"; } };
     const norm = t => { if (!t) return ""; return t.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim(); };
     const debounce = (fn, ms = 120) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; };
+    const parseSimpleMarkdown = (text) => {
+      if (!text) return "";
+      let html = esc(text);
+      // Bold
+      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      // Italic
+      html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+      return html;
+    };
 
     function toast(msg, dur = 2600) {
       const el = document.createElement("div"); el.className = "toast-item"; el.textContent = msg;
@@ -1849,8 +1871,12 @@
       const newPrompts = d.prompts.map(p => {
         const tags = [...new Set((Array.isArray(p.tags) ? p.tags : []).map(normalizeTag).filter(Boolean))];
         const ai = (p.ai || "").trim().toLowerCase();
+        // Preserva o deletedAt caso exista
+        const isDeleted = !!p.deletedAt;
         if (JSON.stringify(tags) !== JSON.stringify(p.tags || []) || ai !== (p.ai || "")) changed = true;
-        return { ...p, tags, ai };
+        const np = { ...p, tags, ai };
+        if (isDeleted) np.deletedAt = p.deletedAt;
+        return np;
       });
       if (changed) return { ...d, prompts: newPrompts, updatedAt: nowISO() };
       return { ...d, prompts: newPrompts };
@@ -1868,11 +1894,18 @@
       for (const id of allIds) {
         const lp = localMap.get(id);
         const rp = remoteMap.get(id);
-        if (lp && !rp) mergedPrompts.push(lp);
-        else if (!lp && rp) mergedPrompts.push(rp);
-        else {
-          const lTime = new Date(lp.updatedAt || 0).getTime();
-          const rTime = new Date(rp.updatedAt || 0).getTime();
+
+        if (lp && !rp) {
+          mergedPrompts.push(lp);
+        } else if (!lp && rp) {
+          mergedPrompts.push(rp);
+        } else {
+          // Both exist, check tombstone first.
+          const lDel = lp.deletedAt ? new Date(lp.deletedAt).getTime() : 0;
+          const rDel = rp.deletedAt ? new Date(rp.deletedAt).getTime() : 0;
+          const lTime = Math.max(new Date(lp.updatedAt || 0).getTime(), lDel);
+          const rTime = Math.max(new Date(rp.updatedAt || 0).getTime(), rDel);
+
           mergedPrompts.push(rTime > lTime ? rp : lp);
         }
       }
@@ -1897,12 +1930,18 @@
     }
 
     let _lsTimer = null;
-    function save(d, bumpTime = true) {
+    function save(d, bumpTime = true, syncFlush = false) {
       if (bumpTime) d.updatedAt = nowISO();
-      clearTimeout(_lsTimer);
-      _lsTimer = setTimeout(() => {
-        localStorage.setItem(LS_KEY_V3, JSON.stringify(d, null, 2));
-      }, 400);
+
+      const doSave = () => localStorage.setItem(LS_KEY_V3, JSON.stringify(d, null, 2));
+
+      if (syncFlush) {
+        clearTimeout(_lsTimer);
+        doSave();
+      } else {
+        clearTimeout(_lsTimer);
+        _lsTimer = setTimeout(doSave, 400);
+      }
     }
 
     let data = load();
@@ -2010,7 +2049,7 @@
     document.documentElement.setAttribute("data-theme", getTheme());
 
     // ── Selectors ──
-    function allPrompts() { return data.prompts || []; }
+    function allPrompts() { return (data.prompts || []).filter(p => !p.deletedAt); }
     function promptsForCat(cat) {
       if (cat === "todos") return allPrompts();
       if (cat === "arquivados") return allPrompts().filter(p => p.status === "arquivado" || p.categoria === "arquivados");
@@ -2284,6 +2323,35 @@
       grid.innerHTML = "";
       grid.ondragover = null;
       grid.ondrop = null;
+      if (!grid.dataset.delegated) {
+        grid.dataset.delegated = "true";
+        grid.addEventListener("click", e => {
+          const card = e.target.closest(".prompt-card");
+          if (!card) return;
+          const id = card.dataset.promptId;
+          if (!id) return;
+
+          const actionBtn = e.target.closest("[data-action]");
+          if (actionBtn) {
+            const action = actionBtn.dataset.action;
+            if (action === "copy") { e.stopPropagation(); copyPrompt(id); }
+            else if (action === "edit") { e.stopPropagation(); openEditor(id); }
+            else if (action === "dupe") { e.stopPropagation(); duplicatePrompt(id); }
+            else if (action === "pin") {
+              e.stopPropagation();
+              const p = data.prompts.find(x => x.id === id);
+              if (p) {
+                p.pinned = !p.pinned;
+                p.updatedAt = nowISO();
+                save(data); renderMain();
+              }
+            }
+            return;
+          }
+          if (S.suppressNextCardClick) return;
+          openDrawer(id);
+        });
+      }
       const ps = filteredPrompts();
 
       if (!ps.length) {
@@ -2360,7 +2428,8 @@
       const query = (S.search || S.sideSearch).trim();
       if (query) {
         try {
-          const r = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi");
+          const escQuery = esc(query); // Procura pela string já escapada para não quebrar entidades HTML
+          const r = new RegExp(`(${escQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi");
           cardTitle = cardTitle.replace(r, "<mark>$1</mark>");
         } catch (e) { }
       }
@@ -2389,23 +2458,6 @@
       <button class="card-btn" data-action="dupe">🔁 Duplicar</button>
     </div>`;
 
-      card.addEventListener("click", e => {
-        if (e.target.closest("[data-action]")) return;
-        if (S.suppressNextCardClick) return;
-        openDrawer(p.id);
-      });
-      card.querySelector("[data-action=copy]").addEventListener("click", e => { e.stopPropagation(); copyPrompt(p.id); });
-      card.querySelector("[data-action=edit]").addEventListener("click", e => { e.stopPropagation(); openEditor(p.id); });
-      card.querySelector("[data-action=dupe]").addEventListener("click", e => { e.stopPropagation(); duplicatePrompt(p.id); });
-      card.querySelector("[data-action=pin]").addEventListener("click", e => {
-        e.stopPropagation();
-        const promptToPin = data.prompts.find(x => x.id === p.id);
-        if (promptToPin) {
-          promptToPin.pinned = !promptToPin.pinned;
-          promptToPin.updatedAt = nowISO();
-          save(data); renderMain();
-        }
-      });
       if (S.promptSort === "manual") {
         const handle = card.querySelector('[data-action="drag-handle"]');
         handle.addEventListener("dragstart", e => {
@@ -2448,7 +2500,7 @@
 
       // Text
       const tl = document.createElement("div"); tl.className = "drawer-section-label"; tl.textContent = "Texto do Prompt";
-      const tx = document.createElement("pre"); tx.className = "drawer-text"; tx.textContent = p.text || "";
+      const tx = document.createElement("div"); tx.className = "drawer-text"; tx.innerHTML = parseSimpleMarkdown(p.text || "");
       body.appendChild(tl); body.appendChild(tx);
 
       // Meta rows
@@ -2530,6 +2582,7 @@
       setTimeout(() => $("#e_title").focus(), 150);
     }
     function editorHasChanges() {
+      if (_editorPinned !== (S.editingId ? !!allPrompts().find(x => x.id === S.editingId)?.pinned : false)) return true;
       const fields = ["#e_title", "#e_text", "#e_categoria", "#e_subcategoria", "#e_formato", "#e_status", "#e_ai", "#e_tags", "#e_quando", "#e_nao_quando", "#e_saida", "#e_note"];
       return fields.some(sel => {
         const el = $(sel);
@@ -2538,7 +2591,9 @@
     }
     function closeEditor(force = false) {
       if (!force && editorHasChanges() && !confirm("Descartar alterações não salvas?")) return;
-      $("#editorOverlay").classList.remove("show"); S.editingId = null;
+      $("#editorOverlay").classList.remove("show");
+      S.editingId = null;
+      _editorPinned = false; // Reset pin state
     }
     $("#btnCloseEditor").addEventListener("click", closeEditor);
     $("#btnCancelEditor").addEventListener("click", closeEditor);
@@ -2618,7 +2673,11 @@
       if (e.target === e.currentTarget) $("#deleteModal").classList.remove("show");
     });
     $("#btnConfirmDelete").addEventListener("click", () => {
-      data.prompts = data.prompts.filter(x => x.id !== S.editingId);
+      const idx = data.prompts.findIndex(x => x.id === S.editingId);
+      if (idx >= 0) {
+        data.prompts[idx].deletedAt = nowISO();
+        data.prompts[idx].updatedAt = nowISO();
+      }
       save(data); closeEditor(true); render(); toast("Prompt excluído 🗑️");
       $("#deleteModal").classList.remove("show");
     });
