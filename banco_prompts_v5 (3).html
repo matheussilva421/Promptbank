@@ -573,11 +573,24 @@ function defaultData() {
   return { version:3, createdAt:nowISO(), updatedAt:nowISO(), prompts:[] };
 }
 
+function normalizePromptPayload(d){
+  if(!d?.prompts||!Array.isArray(d.prompts)) return d;
+  let changed=false;
+  d.prompts=d.prompts.map(p=>{
+    const tags=[...new Set((Array.isArray(p.tags)?p.tags:[]).map(normalizeTag).filter(Boolean))];
+    const ai=(p.ai||"").trim().toLowerCase();
+    if(JSON.stringify(tags)!==JSON.stringify(p.tags||[]) || ai!==(p.ai||"")) changed=true;
+    return {...p,tags,ai};
+  });
+  if(changed) d.updatedAt=nowISO();
+  return d;
+}
+
 function load() {
   // Try v3
   try {
     const r=localStorage.getItem(LS_KEY_V3);
-    if(r){ const d=JSON.parse(r); if(d?.version===3&&Array.isArray(d.prompts)) return d; }
+    if(r){ const d=JSON.parse(r); if(d?.version===3&&Array.isArray(d.prompts)) return normalizePromptPayload(d); }
   } catch(e){}
   // Try v2 → migrate
   try {
@@ -589,7 +602,7 @@ function load() {
     const embedded = document.getElementById("embeddedData")?.textContent?.trim();
     if(embedded){
       const d=JSON.parse(embedded);
-      if(d?.version===3&&Array.isArray(d.prompts)) return d;
+      if(d?.version===3&&Array.isArray(d.prompts)) return normalizePromptPayload(d);
       if(d?.version===2&&Array.isArray(d.categories)) return migrateV2toV3(d);
     }
   } catch(e){}
@@ -621,7 +634,7 @@ let S = {
 const UI_STATE_KEY = "bancoPrompts_uiState_v1";
 
 function saveUIState(){
-  localStorage.setItem(UI_STATE_KEY, JSON.stringify({ cat: S.cat, subcat: S.subcat }));
+  localStorage.setItem(UI_STATE_KEY, JSON.stringify({ cat: S.cat, subcat: S.cat==="analise" ? S.subcat : "" }));
 }
 
 function loadUIState(){
@@ -630,6 +643,7 @@ function loadUIState(){
     if(!raw) return;
     const st = JSON.parse(raw);
     if(st?.cat && CATS.some(c=>c.id===st.cat)) S.cat = st.cat;
+    if(S.cat!=="analise") { S.subcat=""; return; }
     if(st?.subcat && SUBCATS.some(sc=>sc.id===st.subcat)) S.subcat = st.subcat;
   }catch(e){}
 }
@@ -1196,10 +1210,19 @@ async function ensureGoogleReadyAndSync(initial=false){
   if(!hasGoogleConfigured()) return;
   if(typeof google==="undefined"||!google.accounts){ throw new Error("Google indisponível"); }
   if(!driveState.tokenClient) driveInitTokenClient(driveState.clientId);
+  if(!driveState.tokenClient) throw new Error("Falha ao inicializar cliente OAuth do Google");
   if(driveState.token){ if(initial) await driveInitialSync(); else await driveSyncNow(); return; }
   await new Promise((resolve,reject)=>{
+    let didFallback=false;
     driveState.tokenClient.callback=async(resp)=>{
-      if(resp.error){ reject(new Error(resp.error)); return; }
+      if(resp.error){
+        if(initial && !didFallback && ["interaction_required","login_required","consent_required"].includes(resp.error)){
+          didFallback=true;
+          driveState.tokenClient.requestAccessToken({prompt:"consent"});
+          return;
+        }
+        reject(new Error(resp.error)); return;
+      }
       driveState.token=resp.access_token;
       setTimeout(()=>{ driveState.token=null; refreshSyncIdleState(); },((resp.expires_in||3600)-60)*1000);
       try{ if(initial) await driveInitialSync(); else await driveSyncNow(); resolve(); }catch(e){ reject(e); }
