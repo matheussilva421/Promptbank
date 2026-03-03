@@ -56,6 +56,13 @@
       --t1: rgba(12, 20, 55, .92);
       --t2: rgba(12, 20, 55, .60);
       --t3: rgba(12, 20, 55, .35);
+      --blue: #0d8ab5;
+      --blue2: #0a6e91;
+      --blue-g: rgba(13, 138, 181, .12);
+      --amber: #b97200;
+      --red: #c0182a;
+      --green: #15803d;
+      --purple: #6d28d9;
       --sh1: 0 2px 8px rgba(0, 0, 0, .08);
       --sh2: 0 8px 28px rgba(0, 0, 0, .10);
       --sh3: 0 20px 60px rgba(0, 0, 0, .14);
@@ -99,9 +106,31 @@
       cursor: pointer;
     }
 
+    button:disabled,
+    input:disabled,
+    textarea:disabled,
+    select:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+
     a {
       color: inherit;
       text-decoration: none;
+    }
+
+    * {
+      scrollbar-color: var(--line2) transparent;
+      scrollbar-width: thin;
     }
 
     ::-webkit-scrollbar {
@@ -1052,7 +1081,7 @@
       margin-bottom: 24px;
       white-space: pre-wrap;
       word-break: break-word;
-      font-family: var(--font);
+      font-family: var(--mono);
     }
 
     .drawer-text strong {
@@ -3030,7 +3059,12 @@
       $("#paletteOverlay").classList.add("show");
       setTimeout(() => $("#paletteInput").focus(), 10);
     }
-    function closePalette() { $("#paletteOverlay").classList.remove("show"); }
+    function closePalette() {
+      $("#paletteOverlay").classList.remove("show");
+      $("#paletteInput").value = "";
+      _paletteIdx = 0;
+      $("#paletteResults").innerHTML = "";
+    }
     $("#paletteOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closePalette(); });
 
     function renderPalette(q = "") {
@@ -3178,14 +3212,15 @@
 
       if (S.lastDeletedPrompt) {
         const t = deletedToast;
+        const undoId = S.lastDeletedPrompt.id; // capture by value, not reference
         if (t) {
           const btnUndo = document.createElement("button");
           btnUndo.textContent = "Desfazer";
           btnUndo.style.cssText = "margin-left:8px;background:none;border:none;color:var(--blue);cursor:pointer;font-weight:600;text-decoration:underline;";
           btnUndo.onclick = () => {
-            const rIdx = data.prompts.findIndex(x => x.id === S.lastDeletedPrompt.id);
+            const rIdx = data.prompts.findIndex(x => x.id === undoId);
             if (rIdx >= 0) {
-              delete data.prompts[rIdx].deletedAt;
+              data.prompts[rIdx].deletedAt = null;
               data.prompts[rIdx].updatedAt = nowISO();
             }
             save(data); render();
@@ -3278,10 +3313,9 @@
     }
 
     function doCopy(text, sourceId = null) {
-      const p = sourceId ? allPrompts().find(x => x.id === sourceId) : allPrompts().find(x => x.text === text);
-      if (p) {
-        p.lastCopiedAt = nowISO();
-        save(data, false);
+      if (sourceId) {
+        const p = allPrompts().find(x => x.id === sourceId);
+        if (p) { p.lastCopiedAt = nowISO(); save(data, false); }
       }
       navigator.clipboard.writeText(text).then(() => toast("Copiado ✅")).catch(() => toast("Erro ao copiar ❌"));
     }
@@ -3310,7 +3344,8 @@
 
     function exportSinglePrompt(id) {
       const p = allPrompts().find(x => x.id === id); if (!p) return;
-      dl(`prompt_${p.id}.json`, JSON.stringify(p, null, 2));
+      const wrapped = { version: 3, createdAt: p.createdAt, updatedAt: p.updatedAt, prompts: [p] };
+      dl(`prompt_${p.id}.json`, JSON.stringify(wrapped, null, 2));
       toast("Prompt exportado ⬇️");
     }
 
@@ -3373,7 +3408,7 @@
         if (d?.version === 3 && Array.isArray(d.prompts)) {
           const proceed = await customConfirm("Atenção", "Importar vai substituir os dados atuais. Deseja continuar?");
           if (!proceed) return;
-          data = d; save(data, false); render(); toast("Importado ✅");
+          data = normalizePromptPayload(d); save(data, false); render(); toast("Importado ✅");
         } else if (d?.version === 2 && Array.isArray(d.categories)) {
           const migrate = await customConfirm("Migração v2", "Arquivo v2 detectado. Migrar e combinar com os dados atuais?");
           if (!migrate) return;
@@ -3385,12 +3420,15 @@
     // ── Keyboard ──
     document.addEventListener("keydown", async e => {
       const cmd = e.ctrlKey || e.metaKey; const k = e.key.toLowerCase();
+      const isInput = ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName);
       if (k === "escape") {
         if ($("#customAlertOverlay").classList.contains("show")) {
           $("#btnCustomAlertCancel")?.click();
+        } else if ($("#paletteOverlay").classList.contains("show")) {
+          closePalette();
         } else if ($("#editorOverlay").classList.contains("show")) {
-          await closeEditor();
-        } else {
+          if (!isInput) await closeEditor();
+        } else if (!isInput) {
           closeDrawer();
         }
       }
@@ -3516,6 +3554,8 @@
       const headers = { ...(init.headers || {}), "Authorization": "Bearer " + driveState.token };
       const response = await fetch(url, { ...init, headers });
       if (response.status === 401 || response.status === 403) {
+        driveState.token = null;
+        refreshSyncIdleState();
         customAlert("Autenticação Falhou", "Sessão do Google Drive expirada. Faça login novamente.").then(() => { if (typeof openDriveSetupModal === "function") openDriveSetupModal(); else $("#btnSettings").click(); });
         throw new Error("HTTP 401: Google Drive Sessão Expirada");
       }
@@ -3641,6 +3681,7 @@
       if (!cfState.url || !cfState.url.startsWith("http")) throw new Error("Cloudflare URL não configurada ou inválida");
       const r = await fetch(cfState.url, { method, headers: { "Authorization": "Bearer " + cfState.token, ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body, null, 2) : undefined });
       if (r.status === 401 || r.status === 403) {
+        cfState.token = "";
         customAlert("Autenticação Falhou", "Token do Cloudflare inválido ou sessão expirada.").then(() => $("#btnSettings").click());
         throw new Error("HTTP 401: Cloudflare Token inválido");
       }
