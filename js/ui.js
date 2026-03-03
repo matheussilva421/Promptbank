@@ -59,7 +59,7 @@ function filteredPromptsBase() {
   }
   if (S.filterFormato) ps = ps.filter(p => p.formato === S.filterFormato);
   if (S.filterStatus) ps = ps.filter(p => p.status === S.filterStatus);
-  if (S.filterTags.length) ps = ps.filter(p => S.filterTags.every(ft => (p.tags || []).map(t => t.toLowerCase()).includes(ft.toLowerCase())));
+  if (S.filterTags.length) ps = ps.filter(p => S.filterTags.every(ft => (p.tags || []).includes(ft)));
   if (S.filterAis.length) ps = ps.filter(p => S.filterAis.includes((p.ai || "").toLowerCase()));
   return ps;
 }
@@ -214,18 +214,20 @@ function renderSidePanel() {
   }
 
   // Status filter
-  const fl2 = document.createElement("div"); fl2.className = "filter-section";
-  fl2.innerHTML = `<div class="filter-label">Status</div><div class="filter-chips" id="statusChips"></div>`;
-  body.appendChild(fl2);
   const statusUsed = [...new Set(catPrompts.map(p => p.status || "teste").filter(Boolean))];
-  const chips2 = fl2.querySelector("#statusChips");
-  statusUsed.forEach(st => {
-    const c = document.createElement("span");
-    c.className = "chip" + (S.filterStatus === st ? " active" : "");
-    c.textContent = STATUS_LABELS[st] || st;
-    c.addEventListener("click", () => { S.filterStatus = S.filterStatus === st ? "" : st; renderSidePanel(); renderMain(); });
-    chips2.appendChild(c);
-  });
+  if (statusUsed.length) {
+    const fl2 = document.createElement("div"); fl2.className = "filter-section";
+    fl2.innerHTML = `<div class="filter-label">Status</div><div class="filter-chips" id="statusChips"></div>`;
+    body.appendChild(fl2);
+    const chips2 = fl2.querySelector("#statusChips");
+    statusUsed.forEach(st => {
+      const c = document.createElement("span");
+      c.className = "chip" + (S.filterStatus === st ? " active" : "");
+      c.textContent = STATUS_LABELS[st] || st;
+      c.addEventListener("click", () => { S.filterStatus = S.filterStatus === st ? "" : st; renderSidePanel(); renderMain(); });
+      chips2.appendChild(c);
+    });
+  }
 
   // AI filter
   const aisUsed = [...new Set(catPrompts.map(p => p.ai).filter(Boolean))];
@@ -238,7 +240,7 @@ function renderSidePanel() {
       const c = document.createElement("span");
       const aiKey = ai.toLowerCase();
       c.className = "chip" + (S.filterAis.includes(aiKey) ? " active" : "");
-      c.textContent = ai.charAt(0).toUpperCase() + ai.slice(1);
+      c.textContent = (AI_LIST.find(a => a.id === aiKey)?.label) || (ai.charAt(0).toUpperCase() + ai.slice(1));
       c.addEventListener("click", () => {
         S.filterAis = S.filterAis.includes(aiKey) ? S.filterAis.filter(t => t !== aiKey) : [...S.filterAis, aiKey];
         renderSidePanel(); renderMain();
@@ -662,7 +664,7 @@ function openEditor(id) {
 
 function updateTextCounter() {
   const len = ($("#e_text").value || "").length;
-  $("#e_text_counter").textContent = `${len} chars | ~${Math.ceil(len / 3.4)} tokens`;
+  $("#e_text_counter").textContent = `${len} chars | ~${Math.ceil(len / 4)} tokens`;
 }
 $("#e_text").addEventListener("input", updateTextCounter);
 function editorHasChanges() {
@@ -1089,6 +1091,8 @@ document.addEventListener("keydown", async e => {
       $("#btnCustomAlertCancel")?.click();
     } else if ($("#paletteOverlay").classList.contains("show")) {
       closePalette();
+    } else if ($("#metaManagerModal").classList.contains("show")) {
+      closeMetaManager();
     } else if ($("#editorOverlay").classList.contains("show")) {
       if (!isInput) await closeEditor();
     } else if (!isInput) {

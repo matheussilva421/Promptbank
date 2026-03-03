@@ -28,7 +28,7 @@ const CAT_ORDER_KEY = "bancoPrompts_catOrder_v1";
 const MANUAL_ORDER_KEY = "bancoPrompts_manualOrder_v1";
 const SUBCAT_ORDER_KEY = "bancoPrompts_subcatOrder_v1";
 
-function lsSet(key, val) { try { localStorage.setItem(key, val); } catch (e) { console.warn("localStorage quota exceeded:", key); } }
+// lsSet() is defined in utils.js (loaded before this file)
 
 // Load custom metadata early (before anything uses CATS/SUBCATS/etc.)
 loadCustomMeta();
