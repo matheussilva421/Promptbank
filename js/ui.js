@@ -1240,7 +1240,8 @@ function renderMetaList(container, arr, type, fields, protectedIds) {
   const formGrid = document.createElement("div"); formGrid.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;";
 
   const inputs = {};
-  fields.forEach(f => {
+  const visibleFields = fields.filter(f => f !== "id"); // hide ID field
+  visibleFields.forEach(f => {
     const wrap = document.createElement("div"); wrap.style.cssText = "flex:1;min-width:100px;";
     wrap.innerHTML = `<label style="font-size:11px;color:var(--t2);display:block;margin-bottom:3px;">${esc(FIELD_LABELS[f] || f)}</label>`;
     const inp = document.createElement("input"); inp.type = "text"; inp.placeholder = FIELD_LABELS[f] || f;
@@ -1250,13 +1251,19 @@ function renderMetaList(container, arr, type, fields, protectedIds) {
     formGrid.appendChild(wrap);
   });
 
+  function _slugify(text) {
+    return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  }
+
   const btnAdd = document.createElement("button"); btnAdd.className = "btn primary sm"; btnAdd.textContent = "Adicionar"; btnAdd.style.height = "32px";
   btnAdd.addEventListener("click", () => {
-    const id = (inputs.id?.value || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "-");
-    if (!id) { toast("ID é obrigatório"); return; }
-    if (arr.some(x => x.id === id)) { toast("Esse ID já existe"); return; }
-    const newItem = {};
-    fields.forEach(f => { newItem[f] = f === "id" ? id : (inputs[f]?.value || "").trim(); });
+    const nameVal = (inputs.name?.value || inputs.label?.value || "").trim();
+    if (!nameVal) { toast("Preencha o nome/label"); return; }
+    const id = _slugify(nameVal);
+    if (!id) { toast("Nome inválido para gerar ID"); return; }
+    if (arr.some(x => x.id === id)) { toast("Já existe um item com esse ID: " + id); return; }
+    const newItem = { id };
+    visibleFields.forEach(f => { newItem[f] = (inputs[f]?.value || "").trim(); });
     arr.push(newItem);
     saveCustomMeta();
     renderMetaManager();
