@@ -39,6 +39,7 @@
       --display: 'Syne', 'DM Sans', sans-serif;
       --dock-w: 64px;
       --panel-w: 260px;
+      --dock-bottom-h: 60px;
       --sh1: 0 2px 8px rgba(0, 0, 0, .4);
       --sh2: 0 8px 28px rgba(0, 0, 0, .5);
       --sh3: 0 20px 60px rgba(0, 0, 0, .6);
@@ -271,6 +272,11 @@
     .dock-icon-btn:hover {
       color: var(--t1);
       background: var(--bg3);
+    }
+
+    .dock-icon-btn:active {
+      background: var(--bg3);
+      transform: scale(0.92);
     }
 
     .dock-icon-btn .tooltip {
@@ -1458,8 +1464,15 @@
       }
 
       .dock-icon-btn {
-        font-size: 18px;
-        margin-bottom: 2px;
+        width: auto;
+        height: auto;
+        min-width: 44px;
+        min-height: 44px;
+        flex: 1 1 0;
+        max-width: 72px;
+        font-size: 20px;
+        padding: 6px 4px;
+        border-radius: var(--r1);
       }
 
       .dock-label {
@@ -1492,21 +1505,29 @@
         left: 0;
         right: 0;
         background: var(--bg1);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
         border-top: 1px solid var(--line);
         flex-direction: row;
         justify-content: space-around;
-        align-items: center;
-        padding: 5px 0 10px;
+        align-items: stretch;
+        padding: 5px 8px env(safe-area-inset-bottom, 10px);
         z-index: 200;
         margin: 0;
+        gap: 4px;
+        min-height: var(--dock-bottom-h);
       }
 
       .app {
         grid-template-rows: auto 1fr;
-        padding-bottom: 56px;
+        padding-bottom: var(--dock-bottom-h);
       }
 
       .dock-sep {
+        display: none;
+      }
+
+      .drive-status-bar {
         display: none;
       }
 
@@ -1559,6 +1580,24 @@
       .search-row {
         flex-direction: column;
         align-items: stretch;
+      }
+
+      .field-row,
+      .field-row3 {
+        grid-template-columns: 1fr;
+      }
+
+      .drive-modal {
+        padding: 18px 14px;
+      }
+
+      .settings-actions {
+        justify-content: stretch;
+      }
+
+      .settings-actions .btn {
+        flex: 1;
+        justify-content: center;
       }
     }
   </style>
@@ -2669,7 +2708,7 @@
           try {
             const safeW = esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             _highlightRegexes.push(new RegExp(`(?<!&[a-z]{1,5};)(${safeW})(?![^<]*>|[^&]*;)`, "gi"));
-          } catch(e) {}
+          } catch(e) { console.warn("[highlight] Invalid regex for word:", w, e); }
         });
       }
 
@@ -3037,6 +3076,7 @@
     $("#paletteInput").addEventListener("input", e => { _paletteIdx = 0; renderPaletteDebounced(e.target.value); });
     $("#paletteInput").addEventListener("keydown", e => {
       const items = $("#paletteResults").children;
+      if ((e.key === "ArrowDown" || e.key === "ArrowUp") && items.length === 0) return;
       if (e.key === "ArrowDown") {
         e.preventDefault(); _paletteIdx = (_paletteIdx + 1) % items.length; renderPalette($("#paletteInput").value);
       } else if (e.key === "ArrowUp") {
@@ -3249,6 +3289,7 @@
     $("#btnCancelVarModal").addEventListener("click", () => { pendingCopyText = ""; $("#varModal").classList.remove("show"); });
     $("#varModal").addEventListener("click", e => { if (e.target === e.currentTarget) { pendingCopyText = ""; $("#varModal").classList.remove("show"); } });
     $("#btnConfirmVarModal").addEventListener("click", () => {
+      if (!pendingCopyText) { $("#varModal").classList.remove("show"); return; }
       let finalTxt = pendingCopyText;
       const inputs = document.querySelectorAll("#varFieldsContainer input");
       inputs.forEach(inp => {
