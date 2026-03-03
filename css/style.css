@@ -156,31 +156,22 @@
     .dock-logo {
       width: 38px;
       height: 38px;
-      border-radius: 11px;
-      background: linear-gradient(145deg, #2D3489, #14B2E4);
       display: grid;
       place-items: center;
       margin-bottom: 12px;
       flex-shrink: 0;
       position: relative;
-      overflow: hidden;
-      box-shadow: 0 6px 20px rgba(20, 178, 228, .3);
+      transition: transform 0.2s ease, filter 0.2s ease;
     }
 
-    .dock-logo::before {
-      content: "";
-      position: absolute;
-      inset: -80%;
-      background: conic-gradient(from 140deg, transparent 0%, rgba(255, 255, 255, .3) 50%, transparent 100%);
-      animation: spin 7s linear infinite;
+    .dock-logo:hover {
+      transform: scale(1.05);
+      filter: drop-shadow(0 0 8px rgba(20, 178, 228, 0.6));
     }
-
-    .dock-logo span {
-      position: relative;
-      font-family: var(--mono);
-      font-size: 11px;
-      font-weight: 600;
-      color: #fff;
+    
+    .dock-logo svg {
+      width: 100%;
+      height: 100%;
     }
 
     @-webkit-keyframes spin {
