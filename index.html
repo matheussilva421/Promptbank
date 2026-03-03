@@ -83,6 +83,10 @@
           📊<div class="dock-label">Stats</div>
           <div class="tooltip">Estatísticas</div>
         </div>
+        <div class="dock-icon-btn" id="btnMetaManager" title="Gerenciar Metadados">
+          🏷️<div class="dock-label">Meta</div>
+          <div class="tooltip">Gerenciar Categorias, Formatos, Status, IA...</div>
+        </div>
         <div class="dock-icon-btn" id="btnSettings" title="Configurações">⚙️<div class="dock-label">Ajustes</div>
           <div class="tooltip">Configurações</div>
         </div>
@@ -181,45 +185,21 @@
           </div>
           <div class="field">
             <label for="e_subcategoria">Subcategoria</label>
-            <select id="e_subcategoria">
-              <option value="">— Nenhuma —</option>
-              <option value="eixo1">Eixo 1 – Qualidade de Segurado</option>
-              <option value="eixo3">Eixo 3 – Preenchimento dos Requisitos</option>
-              <option value="eixo4">Eixo 4 – Composição e Cálculo</option>
-              <option value="eixo5">Eixo 5 – Implantação</option>
-            </select>
+            <select id="e_subcategoria"></select>
           </div>
         </div>
         <div class="field-row">
           <div class="field">
             <label for="e_formato">Formato</label>
-            <select id="e_formato">
-              <option value="">— Sem formato —</option>
-              <option value="compacto">⚡ Compacto</option>
-              <option value="mestre">🧠 Mestre</option>
-              <option value="paragrafo">✍️ Parágrafo</option>
-              <option value="pente-fino">🔬 Pente-fino</option>
-              <option value="redacao-final">📄 Redação Final</option>
-              <option value="checklist">☑️ Checklist</option>
-            </select>
+            <select id="e_formato"></select>
           </div>
           <div class="field">
             <label for="e_status">Status</label>
-            <select id="e_status">
-              <option value="teste">🧪 Em teste</option>
-              <option value="homologado">✅ Homologado</option>
-              <option value="variante">🔁 Variante</option>
-              <option value="arquivado">🗃️ Arquivado</option>
-            </select>
+            <select id="e_status"></select>
           </div>
           <div class="field">
             <label for="e_ai">IA</label>
-            <select id="e_ai">
-              <option value="">— Todos —</option>
-              <option value="gpt">GPT</option>
-              <option value="gemini">Gemini</option>
-              <option value="claude">Claude</option>
-            </select>
+            <select id="e_ai"></select>
           </div>
         </div>
         <div class="field">
@@ -380,7 +360,21 @@
     </div>
   </div>
 
-
+  <!-- ══ METADATA MANAGER MODAL ══ -->
+  <div class="modal-overlay" id="metaManagerModal">
+    <div class="drive-modal" style="width:min(700px,95vw);max-height:88vh;overflow:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="margin:0;">🏷️ Gerenciar Metadados</h2>
+        <button class="btn icon" id="btnCloseMetaManager">✕</button>
+      </div>
+      <div class="meta-tabs" id="metaTabs" style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;"></div>
+      <div id="metaContent" style="min-height:200px;"></div>
+      <div class="drive-modal-actions" style="margin-top:16px;">
+        <button class="btn ghost" id="btnResetMeta">↩️ Restaurar Padrão</button>
+        <button class="btn ghost" id="btnCloseMetaManager2">Fechar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Scripts Extracted -->
   <script src="js/config.js"></script>
