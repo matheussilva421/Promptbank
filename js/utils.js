@@ -158,21 +158,57 @@ function defaultData() {
   return { version: 3, createdAt: nowISO(), updatedAt: new Date(0).toISOString(), prompts: [] };
 }
 
+function coerceIsoDate(value, fallback = nowISO()) {
+  const t = new Date(value || "").getTime();
+  return Number.isFinite(t) ? new Date(t).toISOString() : fallback;
+}
+
+function sanitizePrompt(p) {
+  const createdAt = coerceIsoDate(p?.createdAt, nowISO());
+  const updatedAt = coerceIsoDate(p?.updatedAt, createdAt);
+  const deletedAt = p?.deletedAt ? coerceIsoDate(p.deletedAt, updatedAt) : null;
+  return {
+    id: (typeof p?.id === "string" && p.id.trim()) ? p.id.trim() : uid(),
+    title: typeof p?.title === "string" ? p.title : "Sem título",
+    text: typeof p?.text === "string" ? p.text : "",
+    categoria: typeof p?.categoria === "string" && p.categoria.trim() ? p.categoria : "analise",
+    subcategoria: typeof p?.subcategoria === "string" ? p.subcategoria : "",
+    formato: typeof p?.formato === "string" ? p.formato : "",
+    status: typeof p?.status === "string" && p.status.trim() ? p.status : "teste",
+    ai: (typeof p?.ai === "string" ? p.ai : "").trim().toLowerCase(),
+    tags: [...new Set((Array.isArray(p?.tags) ? p.tags : []).map(normalizeTag).filter(Boolean))],
+    quandoUsar: typeof p?.quandoUsar === "string" ? p.quandoUsar : "",
+    naoUsarQuando: typeof p?.naoUsarQuando === "string" ? p.naoUsarQuando : "",
+    saidaEsperada: typeof p?.saidaEsperada === "string" ? p.saidaEsperada : "",
+    note: typeof p?.note === "string" ? p.note : "",
+    pinned: !!p?.pinned,
+    createdAt,
+    updatedAt,
+    ...(deletedAt ? { deletedAt } : {}),
+  };
+}
+
 function normalizePromptPayload(d) {
-  if (!d?.prompts || !Array.isArray(d.prompts)) return d;
+  if (!d?.prompts || !Array.isArray(d.prompts)) return defaultData();
   let changed = false;
-  const newPrompts = d.prompts.map(p => {
-    const tags = [...new Set((Array.isArray(p.tags) ? p.tags : []).map(normalizeTag).filter(Boolean))];
-    const ai = (p.ai || "").trim().toLowerCase();
-    // Preserva o deletedAt caso exista
-    const isDeleted = !!p.deletedAt;
-    if (JSON.stringify(tags) !== JSON.stringify(p.tags || []) || ai !== (p.ai || "")) changed = true;
-    const np = { ...p, tags, ai };
-    if (isDeleted) np.deletedAt = p.deletedAt;
+  const seenIds = new Set();
+  const newPrompts = d.prompts.map(rawPrompt => {
+    const rawObj = (rawPrompt && typeof rawPrompt === "object") ? rawPrompt : null;
+    const np = sanitizePrompt(rawObj);
+    const rawNormalized = sanitizePrompt(rawObj);
+    while (seenIds.has(np.id)) { np.id = uid(); changed = true; }
+    seenIds.add(np.id);
+    if (!rawObj || JSON.stringify(np) !== JSON.stringify(rawNormalized)) changed = true;
     return np;
   });
-  if (changed) return { ...d, prompts: newPrompts, updatedAt: nowISO() };
-  return { ...d, prompts: newPrompts };
+  const normalized = {
+    version: 3,
+    createdAt: coerceIsoDate(d.createdAt, nowISO()),
+    updatedAt: coerceIsoDate(d.updatedAt, nowISO()),
+    prompts: newPrompts,
+  };
+  if (changed) normalized.updatedAt = nowISO();
+  return normalized;
 }
 
 function mergeData(local, remote) {
