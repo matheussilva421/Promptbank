@@ -340,6 +340,7 @@ function renderMain() {
         if (action === "copy") { e.stopPropagation(); copyPrompt(id); }
         else if (action === "edit") { e.stopPropagation(); openEditor(id); }
         else if (action === "dupe") { e.stopPropagation(); duplicatePrompt(id); }
+        else if (action === "archive") { e.stopPropagation(); toggleArchivePrompt(id); }
         else if (action === "pin") {
           e.stopPropagation();
           const p = data.prompts.find(x => x.id === id);
@@ -511,6 +512,7 @@ function buildCard(p) {
     <div class="card-actions">
       <button class="card-btn" data-action="edit">✏️ Editar</button>
       <button class="card-btn" data-action="dupe">🔁 Duplicar</button>
+      <button class="card-btn" data-action="archive">${p.status === "arquivado" ? "📂 Desarquivar" : "🗃️ Arquivar"}</button>
     </div>`;
 
   if (S.promptSort === "manual") {
@@ -534,6 +536,20 @@ function buildCard(p) {
 }
 
 // ── Drawer ──
+function toggleArchivePrompt(id) {
+  const p = data.prompts.find(x => x.id === id);
+  if (!p) return;
+
+  const isArchived = p.status === "arquivado";
+  p.status = isArchived ? "teste" : "arquivado";
+  p.updatedAt = nowISO();
+
+  save(data);
+  render();
+  if (S.openPromptId === id) openDrawer(id);
+  toast(isArchived ? "Prompt desarquivado ✅" : "Prompt arquivado ✅");
+}
+
 function openDrawer(id) {
   const p = allPrompts().find(x => x.id === id); if (!p) return;
   S.openPromptId = id;
@@ -583,8 +599,9 @@ function openDrawer(id) {
   const btnCopy = document.createElement("button"); btnCopy.className = "btn primary"; btnCopy.textContent = "📋 Copiar"; btnCopy.addEventListener("click", () => copyPrompt(id));
   const btnEdit = document.createElement("button"); btnEdit.className = "btn ghost"; btnEdit.textContent = "✏️ Editar"; btnEdit.addEventListener("click", () => { closeDrawer(); setTimeout(() => openEditor(id), 10); });
   const btnDupe = document.createElement("button"); btnDupe.className = "btn ghost"; btnDupe.textContent = "🔁 Duplicar"; btnDupe.addEventListener("click", () => { duplicatePrompt(id); closeDrawer(); });
+  const btnArchive = document.createElement("button"); btnArchive.className = "btn ghost"; btnArchive.textContent = p.status === "arquivado" ? "📂 Desarquivar" : "🗃️ Arquivar"; btnArchive.addEventListener("click", () => toggleArchivePrompt(id));
   const btnExportSingle = document.createElement("button"); btnExportSingle.className = "btn ghost"; btnExportSingle.textContent = "⬇️ Exportar"; btnExportSingle.addEventListener("click", () => exportSinglePrompt(id));
-  footer.appendChild(btnCopy); footer.appendChild(btnEdit); footer.appendChild(btnDupe); footer.appendChild(btnExportSingle);
+  footer.appendChild(btnCopy); footer.appendChild(btnEdit); footer.appendChild(btnDupe); footer.appendChild(btnArchive); footer.appendChild(btnExportSingle);
 
   $("#drawerOverlay").classList.add("open");
   window.history.replaceState(null, "", `#${id}`);
