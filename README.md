@@ -42,8 +42,9 @@
 
 
 ### Uso com Cloudflare Pages + Workers KV (recomendado para hosting web)
-1. Publique este projeto no **Cloudflare Pages**
-2. Crie um **Cloudflare Worker** para expor endpoint de sincronização (`GET/POST /sync`)
+> Para o app principal, use **Cloudflare Pages** (site estático). O Worker é apenas para a API `/sync` com KV.
+1. Publique este projeto no **Cloudflare Pages** (site estático com `index.html` na raiz)
+2. Crie um **Cloudflare Worker** separado para expor endpoint de sincronização (`GET/POST /sync`)
 3. Armazene o JSON no **Workers KV**
 4. Configure URL/token do Worker no app
 5. Guia completo em [`docs/cloudflare-pages-kv.md`](docs/cloudflare-pages-kv.md)
