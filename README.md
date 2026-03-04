@@ -48,6 +48,24 @@
 4. Configure URL/token do Worker no app
 5. Guia completo em [`docs/cloudflare-pages-kv.md`](docs/cloudflare-pages-kv.md)
 
+### Deploy do site (Cloudflare Workers Assets)
+> ⚠️ Se você usar `wrangler versions upload` sozinho, a versão fica apenas em preview e **não** recebe tráfego de produção.
+
+Use a sequência completa:
+
+```bash
+npx wrangler versions upload
+npx wrangler versions deploy --latest
+npx wrangler triggers deploy
+```
+
+Ou execute o script:
+
+```bash
+./scripts/deploy-cloudflare.sh
+```
+
+
 ### Uso com Google Drive (sincronização na nuvem)
 1. Acesse [console.cloud.google.com](https://console.cloud.google.com) e crie um projeto
 2. Vá em **APIs & Services → Library** e ative a **Google Drive API**
