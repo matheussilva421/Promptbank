@@ -1,0 +1,15 @@
+# Never publish repository internals
+.git/**
+.git
+.wrangler/**
+.wrangler
+
+# Local/dev artifacts
+node_modules/**
+*.log
+.DS_Store
+
+# Non-site source/docs
+README.md
+CONTRIBUTING.md
+modular
