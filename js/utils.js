@@ -158,13 +158,14 @@ function defaultData() {
   return { version: 3, createdAt: nowISO(), updatedAt: new Date(0).toISOString(), prompts: [] };
 }
 
-function coerceIsoDate(value, fallback = nowISO()) {
+function coerceIsoDate(value, fallback) {
+  const fallbackIso = fallback || nowISO();
   const t = new Date(value || "").getTime();
-  return Number.isFinite(t) ? new Date(t).toISOString() : fallback;
+  return Number.isFinite(t) ? new Date(t).toISOString() : fallbackIso;
 }
 
-function sanitizePrompt(p) {
-  const createdAt = coerceIsoDate(p?.createdAt, nowISO());
+function sanitizePrompt(p, fallbackNow = nowISO()) {
+  const createdAt = coerceIsoDate(p?.createdAt, fallbackNow);
   const updatedAt = coerceIsoDate(p?.updatedAt, createdAt);
   const deletedAt = p?.deletedAt ? coerceIsoDate(p.deletedAt, updatedAt) : null;
   return {
@@ -190,24 +191,59 @@ function sanitizePrompt(p) {
 
 function normalizePromptPayload(d) {
   if (!d?.prompts || !Array.isArray(d.prompts)) return defaultData();
+
+  const fallbackNow = nowISO();
   let changed = false;
   const seenIds = new Set();
+
   const newPrompts = d.prompts.map(rawPrompt => {
     const rawObj = (rawPrompt && typeof rawPrompt === "object") ? rawPrompt : null;
-    const np = sanitizePrompt(rawObj);
-    const rawNormalized = sanitizePrompt(rawObj);
-    while (seenIds.has(np.id)) { np.id = uid(); changed = true; }
+    const np = sanitizePrompt(rawObj, fallbackNow);
+
+    if (!rawObj) changed = true;
+
+    // Keep IDs unique in-memory to avoid collisions in merge/render.
+    while (seenIds.has(np.id)) {
+      np.id = uid();
+      changed = true;
+    }
     seenIds.add(np.id);
-    if (!rawObj || JSON.stringify(np) !== JSON.stringify(rawNormalized)) changed = true;
+
+    // Fast structural checks (avoid expensive JSON.stringify on large prompt texts).
+    if (rawObj) {
+      const rawAi = (typeof rawObj.ai === "string" ? rawObj.ai : "").trim().toLowerCase();
+      const rawTags = [...new Set((Array.isArray(rawObj.tags) ? rawObj.tags : []).map(normalizeTag).filter(Boolean))];
+      if (
+        np.id !== (typeof rawObj.id === "string" && rawObj.id.trim() ? rawObj.id.trim() : np.id) ||
+        np.title !== (typeof rawObj.title === "string" ? rawObj.title : "Sem título") ||
+        np.text !== (typeof rawObj.text === "string" ? rawObj.text : "") ||
+        np.categoria !== (typeof rawObj.categoria === "string" && rawObj.categoria.trim() ? rawObj.categoria : "analise") ||
+        np.subcategoria !== (typeof rawObj.subcategoria === "string" ? rawObj.subcategoria : "") ||
+        np.formato !== (typeof rawObj.formato === "string" ? rawObj.formato : "") ||
+        np.status !== (typeof rawObj.status === "string" && rawObj.status.trim() ? rawObj.status : "teste") ||
+        np.ai !== rawAi ||
+        np.tags.length !== rawTags.length || np.tags.some((t, i) => t !== rawTags[i]) ||
+        np.quandoUsar !== (typeof rawObj.quandoUsar === "string" ? rawObj.quandoUsar : "") ||
+        np.naoUsarQuando !== (typeof rawObj.naoUsarQuando === "string" ? rawObj.naoUsarQuando : "") ||
+        np.saidaEsperada !== (typeof rawObj.saidaEsperada === "string" ? rawObj.saidaEsperada : "") ||
+        np.note !== (typeof rawObj.note === "string" ? rawObj.note : "") ||
+        np.pinned !== !!rawObj.pinned ||
+        np.createdAt !== coerceIsoDate(rawObj.createdAt, fallbackNow) ||
+        np.updatedAt !== coerceIsoDate(rawObj.updatedAt, np.createdAt) ||
+        (np.deletedAt || null) !== (rawObj.deletedAt ? coerceIsoDate(rawObj.deletedAt, np.updatedAt) : null)
+      ) changed = true;
+    }
+
     return np;
   });
+
   const normalized = {
     version: 3,
-    createdAt: coerceIsoDate(d.createdAt, nowISO()),
-    updatedAt: coerceIsoDate(d.updatedAt, nowISO()),
+    createdAt: coerceIsoDate(d.createdAt, fallbackNow),
+    updatedAt: coerceIsoDate(d.updatedAt, fallbackNow),
     prompts: newPrompts,
   };
-  if (changed) normalized.updatedAt = nowISO();
+  if (changed) normalized.updatedAt = fallbackNow;
   return normalized;
 }
 
