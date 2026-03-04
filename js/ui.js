@@ -739,8 +739,12 @@ function renderPalette(q = "") {
 
   // Prompts
   allPrompts().forEach(p => {
-    if (!query || p.title.toLowerCase().includes(query) || (p.tags || []).some(t => t.toLowerCase().includes(query)) || (p.text || "").toLowerCase().includes(query) || (p.quandoUsar || "").toLowerCase().includes(query)) {
-      items.push({ icon: "📄", label: p.title, sub: p.categoria, action: () => openDrawer(p.id) });
+    const title = String(p?.title || "");
+    const tags = Array.isArray(p?.tags) ? p.tags : [];
+    const text = String(p?.text || "");
+    const whenToUse = String(p?.quandoUsar || "");
+    if (!query || title.toLowerCase().includes(query) || tags.some(t => String(t).toLowerCase().includes(query)) || text.toLowerCase().includes(query) || whenToUse.toLowerCase().includes(query)) {
+      items.push({ icon: "📄", label: title || "Sem título", sub: p.categoria, action: () => openDrawer(p.id) });
     }
   });
 

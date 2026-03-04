@@ -113,8 +113,9 @@ async function driveInitialSync() {
         }
       }
       suppressAutoSync = true;
-      const remoteNormalized = remote.version === 3 ? remote : (remote.version === 2 ? migrateV2toV3(remote) : data);
-      data = mergeData(data, remoteNormalized);
+      const remoteCandidate = remote.version === 3 ? remote : (remote.version === 2 ? migrateV2toV3(remote) : data);
+      const remoteNormalized = normalizePromptPayload(remoteCandidate);
+      data = normalizePromptPayload(mergeData(data, remoteNormalized));
       save(data, false); render(); toast("Dados sincronizados no Drive ☁️");
       suppressAutoSync = false;
 
@@ -227,8 +228,9 @@ async function cfInitialSync() {
       }
     }
     suppressAutoSync = true;
-    const remoteNormalized = remote.version === 3 ? remote : migrateV2toV3(remote);
-    data = mergeData(data, remoteNormalized);
+    const remoteCandidate = remote.version === 3 ? remote : migrateV2toV3(remote);
+    const remoteNormalized = normalizePromptPayload(remoteCandidate);
+    data = normalizePromptPayload(mergeData(data, remoteNormalized));
     save(data, false); render(); toast("Dados sincronizados no Cloudflare ☁️");
     suppressAutoSync = false;
 
