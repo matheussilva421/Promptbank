@@ -1,11 +1,93 @@
+const DEFAULT_KV_KEY = "banco_prompts_v3";
+
+function buildCorsHeaders(request, allowedOrigin) {
+  const origin = request.headers.get("Origin") || "";
+  const finalOrigin = allowedOrigin === "*" ? "*" : origin === allowedOrigin ? origin : allowedOrigin;
+
+  return {
+    "Access-Control-Allow-Origin": finalOrigin,
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type,Authorization",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
+  };
+}
+
+function jsonResponse(payload, status, cors) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      ...cors,
+    },
+  });
+}
+
 export default {
   async fetch(request, env) {
-    if (!env?.ASSETS || typeof env.ASSETS.fetch !== "function") {
-      return new Response(
-        "ASSETS binding não encontrado. Execute: wrangler versions deploy --latest && wrangler triggers deploy",
-        { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } }
-      );
+    const allowedOrigin = env.ALLOWED_ORIGIN || "*";
+    const cors = buildCorsHeaders(request, allowedOrigin);
+    const url = new URL(request.url);
+
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: cors });
     }
-    return env.ASSETS.fetch(request);
+
+    if (url.pathname === "/sync") {
+      if (!env?.PROMPTBANK_KV) {
+        return jsonResponse({ error: "kv_binding_missing" }, 500, cors);
+      }
+
+      const token = env.API_TOKEN;
+      if (token) {
+        const auth = request.headers.get("Authorization") || "";
+        if (auth !== `Bearer ${token}`) {
+          return jsonResponse({ error: "unauthorized" }, 401, cors);
+        }
+      }
+
+      const kvKey = env.KV_KEY || DEFAULT_KV_KEY;
+
+      if (request.method === "GET") {
+        const data = await env.PROMPTBANK_KV.get(kvKey, "text");
+        if (!data) {
+          return jsonResponse({ error: "not_found" }, 404, cors);
+        }
+        return new Response(data, {
+          status: 200,
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            ...cors,
+          },
+        });
+      }
+
+      if (request.method === "POST") {
+        const body = await request.text();
+
+        try {
+          const parsed = JSON.parse(body);
+          if (!parsed || typeof parsed !== "object") {
+            return jsonResponse({ error: "invalid_payload" }, 400, cors);
+          }
+        } catch {
+          return jsonResponse({ error: "invalid_json" }, 400, cors);
+        }
+
+        await env.PROMPTBANK_KV.put(kvKey, body);
+        return jsonResponse({ ok: true }, 200, cors);
+      }
+
+      return jsonResponse({ error: "method_not_allowed" }, 405, cors);
+    }
+
+    if (env?.ASSETS && typeof env.ASSETS.fetch === "function") {
+      return env.ASSETS.fetch(request);
+    }
+
+    return new Response("Static assets indisponíveis neste deploy.", {
+      status: 503,
+      headers: { "content-type": "text/plain; charset=utf-8", ...cors },
+    });
   },
 };
