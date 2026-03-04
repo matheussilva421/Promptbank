@@ -11,7 +11,11 @@
       }
       if (typeof _lsTimer !== "undefined") {
         clearTimeout(_lsTimer);
-        localStorage.setItem(LS_KEY_V3, JSON.stringify(data));
+        try {
+          localStorage.setItem(LS_KEY_V3, JSON.stringify(data));
+        } catch (err) {
+          console.warn("Falha ao persistir antes de sair:", err);
+        }
       }
     });
 
