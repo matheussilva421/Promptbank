@@ -13,6 +13,7 @@
 - **Editor modal** completo com campos: título, texto, categoria, subcategoria, formato, status, IA, tags, quando usar, quando não usar, saída esperada e nota interna
 - **Drawer de detalhe** com todos os metadados do prompt
 - **Exportar / Importar** em JSON (com suporte a migração de versão anterior v2 → v3)
+- **Importar texto colado do Word** com detecção automática de blocos por `Eixo` e `Q.x.x — Título`
 - **Sincronização com Google Drive** via OAuth 2.0 (salva `banco_prompts.json` no Drive)
 - **Tema claro / escuro** com alternância por botão
 - **100% offline** — funciona localmente via `localStorage`
@@ -150,6 +151,7 @@ A aplicação suporta **tema escuro** (padrão) e **tema claro**, com variáveis
 
 - **Exportar**: clique no ícone de dados (dock esquerda) → *Exportar JSON* — gera `banco-prompts.json`
 - **Importar**: clique em *Importar JSON* e selecione um arquivo. Suporta migração automática do formato v2 para v3.
+- **Importar do Word (texto colado)**: em Configurações, use *Importar texto do Word*, cole o conteúdo e confirme para adicionar os blocos detectados sem apagar os prompts existentes.
 
 ---
 
