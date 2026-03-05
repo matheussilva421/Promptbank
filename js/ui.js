@@ -1096,6 +1096,133 @@ if (mobileToggle) {
 
 
 
+
+function normalizeImportWordLine(line) {
+  return (line || "")
+    .replace(/[–—−]/g, "-")
+    .replace(/ /g, " ")
+    .replace(/[◢▸•●▪▫◆]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseWordPrompts(rawText) {
+  const lines = (rawText || "").split(/\r?\n/);
+  const parsed = [];
+  let currentEixo = "";
+  let current = null;
+
+  const flushCurrent = () => {
+    if (!current) return;
+    current.text = current.text.trim();
+    if (current.title && current.text) parsed.push(current);
+    current = null;
+  };
+
+  for (const rawLine of lines) {
+    const line = normalizeImportWordLine(rawLine);
+    if (!line) continue;
+
+    const eixoMatch = line.match(/^eixo\s*([0-9]+)$/i);
+    if (eixoMatch) {
+      currentEixo = `eixo${eixoMatch[1]}`;
+      continue;
+    }
+
+    const questionMatch = line.match(/^(?:q\s*\.?\s*)?([0-9]+(?:\.[0-9]+){1,3})\s*[\-–—]\s*(.+)$/i);
+    if (questionMatch) {
+      flushCurrent();
+      const code = questionMatch[1];
+      const title = questionMatch[2].trim().replace(/[\.\s]+$/, "");
+      current = {
+        title: `Q.${code} — ${title}`,
+        text: "",
+        inferredSubcategoria: currentEixo
+      };
+      continue;
+    }
+
+    if (!current) continue;
+    current.text += (current.text ? "\n" : "") + rawLine.trimEnd();
+  }
+
+  flushCurrent();
+  return parsed;
+}
+
+function openWordImportModal() {
+  const modal = $("#wordImportModal");
+  if (!modal) return;
+
+  const catSel = $("#wordImportCategoria");
+  const stSel = $("#wordImportStatus");
+  const fmtSel = $("#wordImportFormato");
+  const aiSel = $("#wordImportAi");
+
+  if (catSel) {
+    catSel.innerHTML = "";
+    EDITABLE_CATS.forEach(c => {
+      const o = document.createElement("option");
+      o.value = c.id;
+      o.textContent = `${c.icon || ""} ${c.name}`.trim();
+      catSel.appendChild(o);
+    });
+    catSel.value = "analise";
+  }
+
+  if (stSel) {
+    stSel.innerHTML = "";
+    STATUS_LIST.forEach(st => {
+      const o = document.createElement("option");
+      o.value = st.id;
+      o.textContent = st.label || st.id;
+      stSel.appendChild(o);
+    });
+    stSel.value = "teste";
+  }
+
+  if (fmtSel) {
+    fmtSel.innerHTML = '<option value="">(sem formato)</option>';
+    FORMATO_LIST.forEach(f => {
+      const o = document.createElement("option");
+      o.value = f.id;
+      o.textContent = f.label || f.id;
+      fmtSel.appendChild(o);
+    });
+  }
+
+  if (aiSel) {
+    aiSel.innerHTML = '<option value="">(não definido)</option>';
+    AI_LIST.forEach(ai => {
+      const o = document.createElement("option");
+      o.value = ai.id;
+      o.textContent = ai.label || ai.id;
+      aiSel.appendChild(o);
+    });
+    aiSel.value = "gpt";
+  }
+
+  $("#wordImportText").value = "";
+  $("#wordImportPreview").textContent = "Cole o texto para visualizar quantos blocos serão importados.";
+  $("#wordImportError").textContent = "";
+  modal.classList.add("show");
+}
+
+function closeWordImportModal() {
+  $("#wordImportModal")?.classList.remove("show");
+}
+
+function refreshWordImportPreview() {
+  const text = $("#wordImportText")?.value || "";
+  const parsed = parseWordPrompts(text);
+  if (!parsed.length) {
+    $("#wordImportPreview").textContent = "Nenhum bloco detectado ainda.";
+    return;
+  }
+  const withEixo = parsed.filter(p => p.inferredSubcategoria).length;
+  $("#wordImportPreview").textContent = `${parsed.length} bloco(s) detectado(s) • ${withEixo} com eixo detectado automaticamente.`;
+}
+
 // ── Theme ──
 $("#btnTheme").addEventListener("click", () => { const n = getTheme() === "light" ? "dark" : "light"; setTheme(n); applyColor(currentColorIndex); toast(n === "light" ? "Tema claro ☀️" : "Tema escuro 🌙"); });
 
@@ -1107,6 +1234,57 @@ function dl(name, content, type = "application/json") {
 $("#btnSettings").addEventListener("click", () => { if (typeof openDriveSetupModal === "function") openDriveSetupModal(); });
 $("#btnExport").addEventListener("click", () => { dl("banco-prompts.json", JSON.stringify(data, null, 2)); toast("Exportado ⬇️"); });
 $("#btnImport").addEventListener("click", () => $("#importFile").click());
+$("#btnImportWord")?.addEventListener("click", () => openWordImportModal());
+$("#btnCloseWordImport")?.addEventListener("click", () => closeWordImportModal());
+$("#wordImportModal")?.addEventListener("click", e => { if (e.target === e.currentTarget) closeWordImportModal(); });
+$("#wordImportText")?.addEventListener("input", () => { $("#wordImportError").textContent = ""; refreshWordImportPreview(); });
+$("#btnApplyWordImport")?.addEventListener("click", async () => {
+  const text = $("#wordImportText")?.value || "";
+  const parsed = parseWordPrompts(text);
+  if (!parsed.length) {
+    $("#wordImportError").textContent = "Não consegui identificar blocos. Verifique se há títulos como: Q.0.1 — Nome do Prompt.";
+    return;
+  }
+
+  const categoria = $("#wordImportCategoria")?.value || "analise";
+  const status = $("#wordImportStatus")?.value || "teste";
+  const formato = $("#wordImportFormato")?.value || "";
+  const ai = ($("#wordImportAi")?.value || "").toLowerCase();
+
+  const proceed = await customConfirm("Confirmar importação", `Serão adicionados ${parsed.length} prompt(s) sem apagar os existentes. Continuar?`);
+  if (!proceed) return;
+
+  const now = nowISO();
+  parsed.forEach(item => {
+    const subcategoria = categoria === "analise" && item.inferredSubcategoria && SUBCATS.some(sc => sc.id === item.inferredSubcategoria)
+      ? item.inferredSubcategoria
+      : "";
+
+    data.prompts.push({
+      id: uid(),
+      title: item.title,
+      text: item.text,
+      categoria,
+      subcategoria,
+      formato,
+      status,
+      ai,
+      tags: subcategoria ? [subcategoria] : [],
+      quandoUsar: "",
+      naoUsarQuando: "",
+      saidaEsperada: "",
+      note: "Importado via texto do Word",
+      pinned: false,
+      createdAt: now,
+      updatedAt: now
+    });
+  });
+
+  save(data);
+  render();
+  closeWordImportModal();
+  toast(`${parsed.length} prompt(s) importado(s) ✅`);
+});
 $("#importFile").addEventListener("change", async e => {
   const f = e.target.files?.[0]; if (!f) return;
   if (f.size > 5 * 1024 * 1024) { await customAlert("Erro", "Arquivo muito grande (max 5MB)."); e.target.value = ""; return; }
@@ -1145,6 +1323,8 @@ document.addEventListener("keydown", async e => {
       closePalette();
     } else if ($("#metaManagerModal").classList.contains("show")) {
       closeMetaManager();
+    } else if ($("#wordImportModal")?.classList.contains("show")) {
+      closeWordImportModal();
     } else if ($("#editorOverlay").classList.contains("show")) {
       if (!isInput) await closeEditor();
     } else if (!isInput) {
