@@ -91,6 +91,61 @@ function hasActiveFilters() {
   return S.search || S.sideSearch || S.filterFormato || S.filterStatus || S.filterTags.length || S.filterAis.length;
 }
 
+function clearBulkSelection() {
+  S.selectedPromptIds = [];
+  S.bulkMoveTarget = "";
+}
+
+function toggleBulkSelection(id) {
+  if (!id) return;
+  if (S.selectedPromptIds.includes(id)) {
+    S.selectedPromptIds = S.selectedPromptIds.filter(x => x !== id);
+    return;
+  }
+  S.selectedPromptIds = [...S.selectedPromptIds, id];
+}
+
+function getBulkMoveCategoryOptions() {
+  return CATS.filter(c => c.id !== "todos" && c.id !== "arquivados");
+}
+
+function applyBulkMove() {
+  const selected = S.selectedPromptIds.slice();
+  if (!selected.length) {
+    toast("Selecione pelo menos um prompt 🙂");
+    return;
+  }
+  if (!S.bulkMoveTarget) {
+    toast("Escolha a categoria de destino 🙂");
+    return;
+  }
+
+  const byId = new Set(selected);
+  let changed = 0;
+  data.prompts.forEach(p => {
+    if (!byId.has(p.id) || p.deletedAt) return;
+    if (p.categoria !== S.bulkMoveTarget || p.status === "arquivado") {
+      p.categoria = S.bulkMoveTarget;
+      if (p.status === "arquivado") p.status = "teste";
+      p.updatedAt = nowISO();
+      changed += 1;
+    }
+  });
+
+  if (!changed) {
+    toast("Nenhuma alteração necessária");
+    return;
+  }
+
+  save(data);
+  clearBulkSelection();
+  S.bulkSelectMode = false;
+  S.cat = S.bulkMoveTarget;
+  saveUIState();
+  render();
+  toast(`${changed} prompt(s) movido(s) ✅`);
+}
+
 // ── Render ──
 function render() { renderDock(); renderSidePanel(); renderMain(); }
 
@@ -300,6 +355,16 @@ function renderSortBar() {
     bar.appendChild(b);
   });
 
+  const toggleBulkBtn = document.createElement("button");
+  toggleBulkBtn.className = "sort-chip" + (S.bulkSelectMode ? " active" : "");
+  toggleBulkBtn.textContent = S.bulkSelectMode ? "✅ Seleção múltipla" : "☑️ Selecionar vários";
+  toggleBulkBtn.addEventListener("click", () => {
+    S.bulkSelectMode = !S.bulkSelectMode;
+    if (!S.bulkSelectMode) clearBulkSelection();
+    renderMain();
+  });
+  bar.appendChild(toggleBulkBtn);
+
   const counter = document.createElement("div");
   counter.className = "result-counter";
   const total = promptsForCat(S.cat).length;
@@ -327,6 +392,48 @@ function renderMain() {
   // Clear button visibility
   $("#btnClearFilters").style.display = hasActiveFilters() ? "" : "none";
 
+  const bulkBar = $("#bulkActionsBar");
+  bulkBar.innerHTML = "";
+  if (S.bulkSelectMode) {
+    bulkBar.classList.add("show");
+
+    const count = document.createElement("span");
+    count.className = "bulk-actions-count";
+    count.textContent = `${S.selectedPromptIds.length} selecionado(s)`;
+
+    const select = document.createElement("select");
+    const empty = document.createElement("option");
+    empty.value = "";
+    empty.textContent = "Mover para categoria...";
+    select.appendChild(empty);
+    getBulkMoveCategoryOptions().forEach(cat => {
+      const o = document.createElement("option");
+      o.value = cat.id;
+      o.textContent = `${cat.icon} ${cat.name}`;
+      select.appendChild(o);
+    });
+    select.value = S.bulkMoveTarget || "";
+    select.addEventListener("change", e => { S.bulkMoveTarget = e.target.value; });
+
+    const btnMove = document.createElement("button");
+    btnMove.className = "btn primary sm";
+    btnMove.textContent = "Mover selecionados";
+    btnMove.addEventListener("click", applyBulkMove);
+
+    const btnClear = document.createElement("button");
+    btnClear.className = "btn ghost sm";
+    btnClear.textContent = "Limpar seleção";
+    btnClear.addEventListener("click", () => { clearBulkSelection(); renderMain(); });
+
+    bulkBar.appendChild(count);
+    bulkBar.appendChild(select);
+    bulkBar.appendChild(btnMove);
+    bulkBar.appendChild(btnClear);
+  } else {
+    bulkBar.classList.remove("show");
+    clearBulkSelection();
+  }
+
   // Grid
   const grid = $("#promptGrid");
   grid.innerHTML = "";
@@ -346,7 +453,12 @@ function renderMain() {
       const actionBtn = e.target.closest("[data-action]");
       if (actionBtn) {
         const action = actionBtn.dataset.action;
-        if (action === "copy") { e.stopPropagation(); copyPrompt(id); }
+        if (action === "select") {
+          e.stopPropagation();
+          toggleBulkSelection(id);
+          renderMain();
+        }
+        else if (action === "copy") { e.stopPropagation(); copyPrompt(id); }
         else if (action === "edit") { e.stopPropagation(); openEditor(id); }
         else if (action === "dupe") { e.stopPropagation(); duplicatePrompt(id); }
         else if (action === "archive") { e.stopPropagation(); toggleArchivePrompt(id); }
@@ -368,6 +480,11 @@ function renderMain() {
             renderSidePanel(); renderMain();
           }
         }
+        return;
+      }
+      if (S.bulkSelectMode) {
+        toggleBulkSelection(id);
+        renderMain();
         return;
       }
       if (S.suppressNextCardClick) return;
@@ -429,7 +546,7 @@ function renderMain() {
 
   grid.appendChild(frag);
 
-  if (S.promptSort === "manual") {
+  if (S.promptSort === "manual" && !S.bulkSelectMode) {
     grid.ondragover = e => {
       e.preventDefault();
       const dragging = S.draggingPromptId ? grid.querySelector(`.prompt-card[data-prompt-id="${S.draggingPromptId}"]`) : null;
@@ -480,7 +597,7 @@ function renderMain() {
 
 function buildCard(p) {
   const card = document.createElement("div");
-  card.className = "prompt-card" + (S.promptSort === "manual" ? " manual-sort" : "");
+  card.className = "prompt-card" + (S.promptSort === "manual" && !S.bulkSelectMode ? " manual-sort" : "") + (S.selectedPromptIds.includes(p.id) ? " selected" : "");
   card.dataset.promptId = p.id;
   const statusClass = "badge-" + (p.status || "teste");
   const statusLabel = STATUS_LABELS[p.status || "teste"] || p.status;
@@ -503,7 +620,7 @@ function buildCard(p) {
   card.innerHTML = `
     <div class="card-top">
       <div class="card-title-wrap">
-        <span class="card-drag-handle" title="Arrastar card" draggable="true" data-action="drag-handle">⋮⋮</span>
+        ${S.bulkSelectMode ? `<input type="checkbox" class="card-select" data-action="select" ${S.selectedPromptIds.includes(p.id) ? "checked" : ""} aria-label="Selecionar prompt">` : `<span class="card-drag-handle" title="Arrastar card" draggable="true" data-action="drag-handle">⋮⋮</span>`}
         <div class="card-title">${cardTitle}</div>
       </div>
       <div style="display:flex; gap:4px; align-items:center;">
@@ -526,7 +643,7 @@ function buildCard(p) {
       <button class="card-btn" data-action="archive">${p.status === "arquivado" ? "📂 Desarquivar" : "🗃️ Arquivar"}</button>
     </div>`;
 
-  if (S.promptSort === "manual") {
+  if (S.promptSort === "manual" && !S.bulkSelectMode) {
     const handle = card.querySelector('[data-action="drag-handle"]');
     handle.addEventListener("dragstart", e => {
       card.classList.add("dragging");

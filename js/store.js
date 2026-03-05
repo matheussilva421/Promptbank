@@ -15,6 +15,9 @@ let S = {
   manualOrder: {},
   draggingPromptId: null,
   suppressNextCardClick: false,
+  bulkSelectMode: false,
+  selectedPromptIds: [],
+  bulkMoveTarget: "",
   lastDeletedPrompt: null,
   undoTimeout: null
 };
