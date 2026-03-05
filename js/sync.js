@@ -19,7 +19,7 @@ let cfState = {
 let suppressAutoSync = false;
 
 function hasGoogleConfigured() { return !!driveState.clientId; }
-function hasCloudflareConfigured() { return !!(cfState.url && cfState.token); }
+function hasCloudflareConfigured() { return !!cfState.url; }
 function hasAnyRemoteConfigured() { return hasGoogleConfigured() || hasCloudflareConfigured(); }
 
 function driveSyncBtn(state, tip) {
@@ -113,15 +113,18 @@ async function driveInitialSync() {
         }
       }
       suppressAutoSync = true;
-      const remoteCandidate = remote.version === 3 ? remote : (remote.version === 2 ? migrateV2toV3(remote) : data);
-      const remoteNormalized = normalizePromptPayload(remoteCandidate);
-      data = normalizePromptPayload(mergeData(data, remoteNormalized));
-      save(data, false); render(); toast("Dados sincronizados no Drive ☁️");
-      suppressAutoSync = false;
+      try {
+        const remoteCandidate = remote.version === 3 ? remote : (remote.version === 2 ? migrateV2toV3(remote) : data);
+        const remoteNormalized = normalizePromptPayload(remoteCandidate);
+        data = normalizePromptPayload(mergeData(data, remoteNormalized));
+        save(data, false); render(); toast("Dados sincronizados no Drive ☁️");
 
-      const mergedTime = new Date(data.updatedAt || 0).getTime();
-      if (mergedTime > remoteTime) {
-        await driveUpload(data, f.id);
+        const mergedTime = new Date(data.updatedAt || 0).getTime();
+        if (mergedTime > remoteTime) {
+          await driveUpload(data, f.id);
+        }
+      } finally {
+        suppressAutoSync = false;
       }
     } else {
       // Só sobe pro Drive se a gente já tem dados locais válidos ou confirmamos a sobrescrita
@@ -167,11 +170,18 @@ async function ensureGoogleReadyAndSync(initial = false) {
 
 async function cfFetch(method, body) {
   if (!cfState.url || !cfState.url.startsWith("http")) throw new Error("Cloudflare URL não configurada ou inválida");
-  const r = await fetch(cfState.url, { method, headers: { "Authorization": "Bearer " + cfState.token, ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body, null, 2) : undefined });
+  const headers = {
+    ...(cfState.token ? { "Authorization": "Bearer " + cfState.token } : {}),
+    ...(body ? { "Content-Type": "application/json" } : {}),
+  };
+  const r = await fetch(cfState.url, { method, headers, body: body ? JSON.stringify(body, null, 2) : undefined });
   if (r.status === 401 || r.status === 403) {
-    cfState.token = "";
-    customAlert("Autenticação Falhou", "Token do Cloudflare inválido ou sessão expirada.").then(() => $("#btnSettings").click());
-    throw new Error("HTTP 401: Cloudflare Token inválido");
+    if (cfState.token) {
+      cfState.token = "";
+      customAlert("Autenticação Falhou", "Token do Cloudflare inválido ou sessão expirada.").then(() => $("#btnSettings").click());
+      throw new Error("HTTP 401: Cloudflare Token inválido");
+    }
+    throw new Error("HTTP 401: Cloudflare rejeitou a requisição sem autorização válida");
   }
   return r;
 }
@@ -228,15 +238,18 @@ async function cfInitialSync() {
       }
     }
     suppressAutoSync = true;
-    const remoteCandidate = remote.version === 3 ? remote : migrateV2toV3(remote);
-    const remoteNormalized = normalizePromptPayload(remoteCandidate);
-    data = normalizePromptPayload(mergeData(data, remoteNormalized));
-    save(data, false); render(); toast("Dados sincronizados no Cloudflare ☁️");
-    suppressAutoSync = false;
+    try {
+      const remoteCandidate = remote.version === 3 ? remote : migrateV2toV3(remote);
+      const remoteNormalized = normalizePromptPayload(remoteCandidate);
+      data = normalizePromptPayload(mergeData(data, remoteNormalized));
+      save(data, false); render(); toast("Dados sincronizados no Cloudflare ☁️");
 
-    const mergedTime = new Date(data.updatedAt || 0).getTime();
-    if (mergedTime > remoteTime) {
-      await cfSyncNow();
+      const mergedTime = new Date(data.updatedAt || 0).getTime();
+      if (mergedTime > remoteTime) {
+        await cfSyncNow();
+      }
+    } finally {
+      suppressAutoSync = false;
     }
   } else {
     if (data.prompts && data.prompts.length > 0) {
@@ -340,7 +353,6 @@ document.getElementById("btnDriveSetupSave").addEventListener("click", async () 
 
   if (clientId && !clientId.includes(".apps.googleusercontent.com")) { err.textContent = "Client ID Google inválido."; return; }
   if (cfUrl && !/^https:\/\//i.test(cfUrl)) { err.textContent = "URL Cloudflare deve iniciar com https://"; return; }
-  if (cfUrl && !cfToken) { err.textContent = "Informe token do Cloudflare."; return; }
   if (cfToken && !cfUrl) { err.textContent = "Informe URL do Cloudflare."; return; }
 
   err.textContent = "";
