@@ -11,6 +11,7 @@ let S = {
   openPromptId: null,
   editingId: null,
   promptSort: "updated-desc",
+  promptSortByCat: {},
   catOrder: CATS.map(c => c.id),
   manualOrder: {},
   draggingPromptId: null,
@@ -54,11 +55,36 @@ function loadSubcatOrder() {
   } catch (e) { }
 }
 
+function isValidPromptSort(sort) {
+  return ["updated-desc", "title-asc", "manual"].includes(sort);
+}
+
+function currentPromptSortKey() {
+  return S.cat || "todos";
+}
+
+function getPromptSortForCurrentCat() {
+  const fromMap = S.promptSortByCat[currentPromptSortKey()];
+  return isValidPromptSort(fromMap) ? fromMap : "updated-desc";
+}
+
+function syncPromptSortForCurrentCat() {
+  S.promptSort = getPromptSortForCurrentCat();
+}
+
+function setPromptSortForCurrentCat(sort) {
+  if (!isValidPromptSort(sort)) return;
+  S.promptSort = sort;
+  S.promptSortByCat[currentPromptSortKey()] = sort;
+}
+
 function saveUIState() {
+  setPromptSortForCurrentCat(S.promptSort);
   lsSet(UI_STATE_KEY, JSON.stringify({
     cat: S.cat,
     subcat: S.cat === "analise" ? S.subcat : "",
-    promptSort: S.promptSort
+    promptSort: S.promptSort,
+    promptSortByCat: S.promptSortByCat
   }));
 }
 
@@ -68,7 +94,21 @@ function loadUIState() {
     if (!raw) return;
     const st = JSON.parse(raw);
     if (st?.cat && CATS.some(c => c.id === st.cat)) S.cat = st.cat;
-    if (st?.promptSort && ["updated-desc", "title-asc", "manual"].includes(st.promptSort)) S.promptSort = st.promptSort;
+
+    if (st?.promptSortByCat && typeof st.promptSortByCat === "object") {
+      const cleaned = {};
+      Object.entries(st.promptSortByCat).forEach(([catId, sort]) => {
+        if (CATS.some(c => c.id === catId) && isValidPromptSort(sort)) cleaned[catId] = sort;
+      });
+      S.promptSortByCat = cleaned;
+    }
+
+    if (st?.promptSort && isValidPromptSort(st.promptSort)) {
+      if (!S.promptSortByCat[currentPromptSortKey()]) S.promptSortByCat[currentPromptSortKey()] = st.promptSort;
+    }
+
+    syncPromptSortForCurrentCat();
+
     if (S.cat !== "analise") { S.subcat = ""; return; }
     if (st?.subcat && SUBCATS.some(sc => sc.id === st.subcat)) S.subcat = st.subcat;
   } catch (e) { }

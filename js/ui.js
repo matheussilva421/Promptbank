@@ -162,6 +162,7 @@ function renderDock() {
     d.innerHTML = `${esc(cat.icon)}<div class="tooltip">${esc(cat.name)} (${count})</div>`;
     d.addEventListener("click", () => {
       S.cat = cat.id; S.subcat = ""; S.sideSearch = ""; S.search = "";
+      syncPromptSortForCurrentCat();
       S.filterFormato = ""; S.filterStatus = ""; S.filterTags = []; S.filterAis = [];
       $("#sideSearch").value = ""; $("#globalSearch").value = "";
       saveUIState();
@@ -351,7 +352,7 @@ function renderSortBar() {
     const b = document.createElement("button");
     b.className = "sort-chip" + (S.promptSort === o.id ? " active" : "");
     b.textContent = o.label;
-    b.addEventListener("click", () => { S.promptSort = o.id; saveUIState(); renderMain(); });
+    b.addEventListener("click", () => { setPromptSortForCurrentCat(o.id); saveUIState(); renderMain(); });
     bar.appendChild(b);
   });
 
@@ -374,6 +375,7 @@ function renderSortBar() {
 }
 
 function renderMain() {
+  syncPromptSortForCurrentCat();
   renderSortBar();
   // Active filter bar
   const bar = $("#activeFilterBar"); bar.innerHTML = "";
@@ -998,6 +1000,7 @@ $("#btnSavePrompt").addEventListener("click", () => {
     toast("Prompt criado ✅");
   }
   S.cat = p.status === "arquivado" ? "arquivados" : (EDITABLE_CATS.some(c => c.id === p.categoria) ? p.categoria : "analise");
+  syncPromptSortForCurrentCat();
   saveUIState();
   save(data); closeEditor(true); render();
 });
