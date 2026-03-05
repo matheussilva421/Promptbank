@@ -137,7 +137,12 @@ function renderDock() {
 }
 
 function renderSidePanel() {
-  const cat = CATS.find(c => c.id === S.cat) || CATS[0];
+  let cat = CATS.find(c => c.id === S.cat);
+  if (!cat) {
+    S.cat = CATS[0].id;
+    cat = CATS[0];
+    saveUIState();
+  }
   $("#panelCatIcon").textContent = cat.icon;
   $("#panelCatName").textContent = cat.name;
   const catPrompts = promptsForCat(S.cat); // cached — avoids 5+ redundant scans
