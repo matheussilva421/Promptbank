@@ -178,6 +178,7 @@ async function cfFetch(method, body) {
   if (r.status === 401 || r.status === 403) {
     if (cfState.token) {
       cfState.token = "";
+      localStorage.removeItem(CFSYNC_TOKEN_KEY);
       customAlert("Autenticação Falhou", "Token do Cloudflare inválido ou sessão expirada.").then(() => $("#btnSettings").click());
       throw new Error("HTTP 401: Cloudflare Token inválido");
     }
@@ -259,7 +260,7 @@ async function cfInitialSync() {
 }
 
 function isGoogleInteractionRequiredError(err) {
-  const msg = (err?.message || "" + err).toLowerCase();
+  const msg = (err?.message || String(err)).toLowerCase();
   return msg.includes("google requer interação") || msg.includes("interaction_required") || msg.includes("login_required") || msg.includes("consent_required");
 }
 

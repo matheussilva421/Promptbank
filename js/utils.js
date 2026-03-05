@@ -168,7 +168,7 @@ function sanitizePrompt(p, fallbackNow = nowISO()) {
   const createdAt = coerceIsoDate(p?.createdAt, fallbackNow);
   const updatedAt = coerceIsoDate(p?.updatedAt, createdAt);
   const deletedAt = p?.deletedAt ? coerceIsoDate(p.deletedAt, updatedAt) : null;
-  return {
+  const result = {
     id: (typeof p?.id === "string" && p.id.trim()) ? p.id.trim() : uid(),
     title: typeof p?.title === "string" ? p.title : "Sem título",
     text: typeof p?.text === "string" ? p.text : "",
@@ -186,7 +186,9 @@ function sanitizePrompt(p, fallbackNow = nowISO()) {
     createdAt,
     updatedAt,
     ...(deletedAt ? { deletedAt } : {}),
+    ...(p?.lastCopiedAt ? { lastCopiedAt: coerceIsoDate(p.lastCopiedAt, null) } : {}),
   };
+  return result;
 }
 
 function normalizePromptPayload(d) {

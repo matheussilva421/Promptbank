@@ -374,7 +374,7 @@ function renderMain() {
     _renderQuery.toLowerCase().split(/\s+/).filter(Boolean).forEach(w => {
       try {
         const safeW = esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        _highlightRegexes.push(new RegExp(`(?<!&[a-z]{1,5};)(${safeW})(?![^<]*>|[^&]*;)`, "gi"));
+        _highlightRegexes.push(new RegExp(`(?<!&[a-z#0-9]{1,6};)(${safeW})(?![^<]*>|[^&]*;)`, "gi"));
       } catch (e) { console.warn("[highlight] Invalid regex for word:", w, e); }
     });
   }
@@ -906,7 +906,7 @@ $("#btnConfirmDelete").addEventListener("click", () => {
       btnUndo.onclick = () => {
         const rIdx = data.prompts.findIndex(x => x.id === undoId);
         if (rIdx >= 0) {
-          data.prompts[rIdx].deletedAt = null;
+          delete data.prompts[rIdx].deletedAt;
           data.prompts[rIdx].updatedAt = nowISO();
         }
         save(data); render();
@@ -1076,7 +1076,7 @@ $("#btnClearFilters").addEventListener("click", () => {
 });
 
 // ── Theme ──
-$("#btnTheme").addEventListener("click", () => { const n = getTheme() === "light" ? "dark" : "light"; setTheme(n); toast(n === "light" ? "Tema claro ☀️" : "Tema escuro 🌙"); });
+$("#btnTheme").addEventListener("click", () => { const n = getTheme() === "light" ? "dark" : "light"; setTheme(n); applyColor(currentColorIndex); toast(n === "light" ? "Tema claro ☀️" : "Tema escuro 🌙"); });
 
 // ── Settings / Data actions ──
 function dl(name, content, type = "application/json") {
