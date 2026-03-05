@@ -332,6 +332,9 @@ function renderMain() {
   grid.innerHTML = "";
   grid.ondragover = null;
   grid.ondrop = null;
+
+  const frag = document.createDocumentFragment();
+
   if (!grid.dataset.delegated) {
     grid.dataset.delegated = "true";
     grid.addEventListener("click", e => {
@@ -409,20 +412,22 @@ function renderMain() {
         const sep = document.createElement("div");
         sep.style.cssText = "grid-column: 1 / -1; padding-bottom: 4px; border-bottom: 1px dashed var(--line2); margin-top: 12px; font-size: 13px; font-weight: 700; color: var(--blue); letter-spacing: 0.5px; text-transform: uppercase;";
         sep.textContent = "— " + sc.name + " —";
-        grid.appendChild(sep);
-        grouped[sc.id].forEach(p => grid.appendChild(buildCard(p)));
+        frag.appendChild(sep);
+        grouped[sc.id].forEach(p => frag.appendChild(buildCard(p)));
       }
     });
     if (grouped["outros"] && grouped["outros"].length) {
       const sep = document.createElement("div");
       sep.style.cssText = "grid-column: 1 / -1; padding-bottom: 4px; border-bottom: 1px dashed var(--line2); margin-top: 12px; font-size: 13px; font-weight: 700; color: var(--t3); letter-spacing: 0.5px; text-transform: uppercase;";
       sep.textContent = "— Outros / Sem Eixo —";
-      grid.appendChild(sep);
-      grouped["outros"].forEach(p => grid.appendChild(buildCard(p)));
+      frag.appendChild(sep);
+      grouped["outros"].forEach(p => frag.appendChild(buildCard(p)));
     }
   } else {
-    ps.forEach(p => grid.appendChild(buildCard(p)));
+    ps.forEach(p => frag.appendChild(buildCard(p)));
   }
+
+  grid.appendChild(frag);
 
   if (S.promptSort === "manual") {
     grid.ondragover = e => {
@@ -1061,15 +1066,14 @@ $("#globalSearch").addEventListener("input", e => {
 document.addEventListener("input", e => {
   if (e.target.id === "sideSearch") {
     S.sideSearch = e.target.value; S.search = "";
-    $("#globalSearch").value = "";
+    const gs = $("#globalSearch"); if (gs) gs.value = "";
     updateClearBtnVisibility();
     renderMainDebounced();
   }
 });
-$("#btnClearGlobalSearch").addEventListener("click", () => {
-  S.search = ""; $("#globalSearch").value = "";
-  updateClearBtnVisibility(); renderMain();
-});
+
+$("#btnClearGlobalSearch").addEventListener("click", () => { S.search = ""; $("#globalSearch").value = ""; updateClearBtnVisibility(); renderMain(); });
+
 document.addEventListener("click", e => {
   if (e.target.id === "btnClearSideSearch") {
     S.sideSearch = ""; const ss = $("#sideSearch"); if (ss) ss.value = "";
@@ -1081,6 +1085,16 @@ $("#btnClearFilters").addEventListener("click", () => {
   $("#globalSearch").value = ""; const side = $("#sideSearch"); if (side) side.value = "";
   renderSidePanel(); renderMain();
 });
+
+// Mobile Side Panel Toggle
+const mobileToggle = $(".panel-mobile-toggle");
+if (mobileToggle) {
+  mobileToggle.addEventListener("click", () => {
+    $(".side-panel").classList.toggle("collapsed");
+  });
+}
+
+window.addEventListener("localDataSaved", () => { syncStatus(); });
 
 // ── Theme ──
 $("#btnTheme").addEventListener("click", () => { const n = getTheme() === "light" ? "dark" : "light"; setTheme(n); applyColor(currentColorIndex); toast(n === "light" ? "Tema claro ☀️" : "Tema escuro 🌙"); });
