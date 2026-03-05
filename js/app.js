@@ -38,6 +38,7 @@ function handleHash(isBoot = false) {
     if (p) {
       S.cat = (p.status === "arquivado" || p.categoria === "arquivados") ? "arquivados" : (EDITABLE_CATS.some(c => c.id === p.categoria) ? p.categoria : "analise");
       if (p.subcategoria) S.subcat = p.subcategoria;
+      syncPromptSortForCurrentCat();
       saveUIState();
       if (!isBoot) render();
       setTimeout(() => openDrawer(hash), 50);
