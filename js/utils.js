@@ -17,9 +17,9 @@ const parseSimpleMarkdown = (text) => {
   html = html.replace(/^##\s+(.+)$/gm, '<h2 style="margin-top:1em;margin-bottom:.5em;">$1</h2>');
   html = html.replace(/^#\s+(.+)$/gm, '<h1 style="margin-top:1em;margin-bottom:.5em;">$1</h1>');
   // Bold (using lookbehind check for standard escaped tags so it won't trigger html injection if user uses **)
-  html = html.replace(/\*\*(?!&[a-z]{1,5};)([^<]+?)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/\*\*(?!&[a-z#0-9]{1,6};)([^<]+?)\*\*/g, "<strong>$1</strong>");
   // Italic
-  html = html.replace(/\*(?!&[a-z]{1,5};)([^<]+?)\*/g, "<em>$1</em>");
+  html = html.replace(/\*(?!&[a-z#0-9]{1,6};)([^<]+?)\*/g, "<em>$1</em>");
   html = html.replace(/_([^\n_]+)_/g, '<em>$1</em>');
   // Code inline
   html = html.replace(/`([^`\n]+)`/g, '<code style="background:var(--bg3);padding:2px 4px;border-radius:4px;">$1</code>');
@@ -232,7 +232,8 @@ function normalizePromptPayload(d) {
         np.pinned !== !!rawObj.pinned ||
         np.createdAt !== coerceIsoDate(rawObj.createdAt, fallbackNow) ||
         np.updatedAt !== coerceIsoDate(rawObj.updatedAt, np.createdAt) ||
-        (np.deletedAt || null) !== (rawObj.deletedAt ? coerceIsoDate(rawObj.deletedAt, np.updatedAt) : null)
+        (np.deletedAt || null) !== (rawObj.deletedAt ? coerceIsoDate(rawObj.deletedAt, np.updatedAt) : null) ||
+        (np.lastCopiedAt || null) !== (rawObj.lastCopiedAt ? coerceIsoDate(rawObj.lastCopiedAt, null) : null)
       ) changed = true;
     }
 

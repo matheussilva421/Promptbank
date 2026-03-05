@@ -26,6 +26,7 @@ function applyColor(idx) {
   const theme = getTheme();
   const opacity = theme === 'light' ? '0.1' : '0.15';
   document.documentElement.style.setProperty("--blue-g", `rgba(${r}, ${g}, ${b}, ${opacity})`);
+  document.documentElement.style.setProperty("--blue-b", `rgba(${r}, ${g}, ${b}, 0.3)`);
 }
 applyColor(currentColorIndex);
 
@@ -1023,6 +1024,7 @@ $("#btnConfirmVarModal").addEventListener("click", () => {
 function duplicatePrompt(id) {
   const p = allPrompts().find(x => x.id === id); if (!p) return;
   const copy = { ...p, id: uid(), title: "[Cópia] " + p.title, status: "teste", pinned: false, createdAt: nowISO(), updatedAt: nowISO() };
+  delete copy.lastCopiedAt;
   data.prompts.push(copy); save(data); render();
   toast("Prompt duplicado 🔁");
   openEditor(copy.id);
