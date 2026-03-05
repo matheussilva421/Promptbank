@@ -4,7 +4,7 @@ main = "worker.js"
 
 [[kv_namespaces]]
 binding = "PROMPTBANK_KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "f7a7ead8912145ff8c764ae1277e16c9"
 
 [vars]
 # Defina no dashboard/secrets em produção
