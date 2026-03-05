@@ -32,7 +32,7 @@
   <div class="app">
     <!-- ══ DOCK ══ -->
     <nav class="dock">
-      <div class="dock-logo" title="Promptbank">
+      <div class="dock-logo" title="Promptbank" aria-hidden="true" tabindex="-1">
         <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -62,32 +62,34 @@
       <div id="dockCats"></div>
       <div class="dock-bottom">
         <div class="dock-sep"></div>
-        <div class="dock-icon-btn" id="btnDriveSync" data-state="off" title="Configurar / Sincronizar">
+        <div class="dock-icon-btn" id="btnDriveSync" data-state="off" title="Configurar / Sincronizar" role="button"
+          tabindex="0">
           ☁️<div class="dock-label">Sync</div>
           <div class="tooltip" id="driveSyncTooltip">Configurar / Sincronizar</div>
         </div>
         <div class="drive-status-bar" id="driveStatusBar"></div>
-        <div class="dock-icon-btn" id="btnTheme" title="Alternar tema">
+        <div class="dock-icon-btn" id="btnTheme" title="Alternar tema" role="button" tabindex="0">
           🌗<div class="dock-label">Tema</div>
           <div class="tooltip">Alternar tema</div>
         </div>
-        <div class="dock-icon-btn" id="btnShortcuts" title="Atalhos">
+        <div class="dock-icon-btn" id="btnShortcuts" title="Atalhos" role="button" tabindex="0">
           ⌨️<div class="dock-label">Atalhos</div>
           <div class="tooltip">Atalhos (Ctrl+?)</div>
         </div>
-        <div class="dock-icon-btn" id="btnThemePrimary" title="Mudar Cor Destaque">
+        <div class="dock-icon-btn" id="btnThemePrimary" title="Mudar Cor Destaque" role="button" tabindex="0">
           🎨<div class="dock-label">Cor</div>
           <div class="tooltip">Cor Destaque</div>
         </div>
-        <div class="dock-icon-btn" id="btnStats" title="Estatísticas">
+        <div class="dock-icon-btn" id="btnStats" title="Estatísticas" role="button" tabindex="0">
           📊<div class="dock-label">Stats</div>
           <div class="tooltip">Estatísticas</div>
         </div>
-        <div class="dock-icon-btn" id="btnMetaManager" title="Gerenciar Metadados">
+        <div class="dock-icon-btn" id="btnMetaManager" title="Gerenciar Metadados" role="button" tabindex="0">
           🏷️<div class="dock-label">Meta</div>
           <div class="tooltip">Gerenciar Categorias, Formatos, Status, IA...</div>
         </div>
-        <div class="dock-icon-btn" id="btnSettings" title="Configurações">⚙️<div class="dock-label">Ajustes</div>
+        <div class="dock-icon-btn" id="btnSettings" title="Configurações" role="button" tabindex="0">⚙️<div
+            class="dock-label">Ajustes</div>
           <div class="tooltip">Configurações</div>
         </div>
         <input id="importFile" type="file" accept="application/json" style="display:none;">
@@ -107,9 +109,10 @@
           <span class="panel-cat-count" id="panelCatCount">0</span>
         </div>
         <div class="panel-search">
-          <span style="color:var(--t3);font-size:13px;">🔎</span>
-          <input id="sideSearch" placeholder="Buscar..." autocomplete="off">
-          <button class="input-clear-btn" id="btnClearSideSearch" title="Limpar busca">✕</button>
+          <span style="color:var(--t3);font-size:13px;" aria-hidden="true">🔎</span>
+          <input type="search" id="sideSearch" placeholder="Buscar..." autocomplete="off">
+          <button class="input-clear-btn" id="btnClearSideSearch" title="Limpar busca"
+            aria-label="Limpar campo de busca">✕</button>
         </div>
       </div>
       <div class="panel-body" id="panelBody"></div>
@@ -123,30 +126,33 @@
       <div class="main-header">
         <div class="search-row">
           <div class="search-input-wrap">
-            <span style="color:var(--t3);">🔍</span>
-            <input id="globalSearch" placeholder="Buscar em todos os prompts...">
-            <button class="input-clear-btn" id="btnClearGlobalSearch" title="Limpar busca">✕</button>
+            <span style="color:var(--t3);" aria-hidden="true">🔍</span>
+            <input type="search" id="globalSearch" placeholder="Buscar em todos os prompts...">
+            <button class="input-clear-btn" id="btnClearGlobalSearch" title="Limpar busca"
+              aria-label="Limpar campo de busca global">✕</button>
           </div>
-          <button class="btn ghost sm" id="btnClearFilters" style="display:none;">✕ Limpar</button>
+          <button class="btn ghost sm" id="btnClearFilters" style="display:none;" aria-label="Limpar todos os filtros">✕
+            Limpar</button>
         </div>
-        <div class="active-filter-bar" id="activeFilterBar"></div>
+        <div class="active-filter-bar" id="activeFilterBar" aria-live="polite"></div>
         <div class="sort-bar" id="sortBar"></div>
       </div>
       <div class="prompt-grid-wrap">
-        <div class="prompt-grid" id="promptGrid"></div>
+        <div class="prompt-grid" id="promptGrid" role="list"></div>
       </div>
     </main>
   </div>
 
   <!-- ══ PROMPT DETAIL DRAWER ══ -->
   <div class="drawer-overlay" id="drawerOverlay">
-    <div class="drawer" id="promptDrawer">
+    <div class="drawer" id="promptDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
       <div class="drawer-head">
         <div class="drawer-head-top">
           <div class="drawer-title" id="drawerTitle"></div>
           <div style="display:flex;gap:4px;">
-            <button class="drawer-close" id="btnExpandDrawer" title="Expandir/Reduzir Tela Cheia">⛶</button>
-            <button class="drawer-close" id="btnCloseDrawer">✕</button>
+            <button class="drawer-close" id="btnExpandDrawer" title="Expandir/Reduzir Tela Cheia"
+              aria-label="Expandir ou Reduzir Tela">⛶</button>
+            <button class="drawer-close" id="btnCloseDrawer" aria-label="Fechar Gaveta">✕</button>
           </div>
         </div>
         <div class="drawer-meta" id="drawerMeta"></div>
@@ -158,12 +164,12 @@
 
   <!-- ══ PROMPT EDITOR MODAL ══ -->
   <div class="modal-overlay" id="editorOverlay">
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
       <div class="modal-head">
         <h2 id="editorTitle">Novo Prompt</h2>
         <div style="display:flex;gap:4px;align-items:center;">
-          <button class="btn ghost icon" id="btnPinEditor" title="Fixar prompt">⭐</button>
-          <button class="btn ghost icon" id="btnCloseEditor">✕</button>
+          <button class="btn ghost icon" id="btnPinEditor" title="Fixar prompt" aria-label="Fixar prompt">⭐</button>
+          <button class="btn ghost icon" id="btnCloseEditor" aria-label="Fechar Editor">✕</button>
         </div>
       </div>
       <div class="modal-body" id="modalEditorBody">
@@ -248,7 +254,8 @@
   <div class="modal-overlay" id="deleteModal">
     <div class="drive-modal" style="width:min(400px,90vw);">
       <h2>🗑️ Excluir Prompt</h2>
-      <p style="margin-bottom:16px;">Tem certeza que deseja excluir este prompt? Você terá 30 segundos para desfazer a ação.</p>
+      <p style="margin-bottom:16px;">Tem certeza que deseja excluir este prompt? Você terá 30 segundos para desfazer a
+        ação.</p>
       <div class="drive-modal-actions">
         <button class="btn ghost" id="btnCancelDelete">Cancelar</button>
         <button class="btn danger" id="btnConfirmDelete">Excluir</button>

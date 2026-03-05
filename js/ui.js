@@ -1114,6 +1114,14 @@ $("#importFile").addEventListener("change", async e => {
 document.addEventListener("keydown", async e => {
   const cmd = e.ctrlKey || e.metaKey; const k = e.key.toLowerCase();
   const isInput = ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName);
+
+  // Acessibilidade: disparar clique no botão (role="button" ou tabindex="0") com Enter/Space
+  if ((e.key === "Enter" || e.key === " ") && document.activeElement?.getAttribute("role") === "button") {
+    e.preventDefault();
+    document.activeElement.click();
+    return;
+  }
+
   if (k === "escape") {
     if ($("#customAlertOverlay").classList.contains("show")) {
       const cancel = $("#btnCustomAlertCancel");
