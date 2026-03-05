@@ -1116,7 +1116,9 @@ document.addEventListener("keydown", async e => {
   const isInput = ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName);
   if (k === "escape") {
     if ($("#customAlertOverlay").classList.contains("show")) {
-      $("#btnCustomAlertCancel")?.click();
+      const cancel = $("#btnCustomAlertCancel");
+      if (cancel && cancel.style.display !== "none") cancel.click();
+      else $("#btnCustomAlertConfirm")?.click();
     } else if ($("#paletteOverlay").classList.contains("show")) {
       closePalette();
     } else if ($("#metaManagerModal").classList.contains("show")) {
@@ -1180,11 +1182,11 @@ $("#metaManagerModal").addEventListener("click", e => { if (e.target === e.curre
 $("#btnResetMeta").addEventListener("click", async () => {
   const yes = await customConfirm("Restaurar Padrão", "Isso vai restaurar todos os metadados para os valores originais. Os prompts existentes não serão alterados, mas podem perder a referência a itens customizados. Continuar?");
   if (!yes) return;
-  CATS.splice(0, CATS.length, ...DEFAULT_CATS);
-  SUBCATS.splice(0, SUBCATS.length, ...DEFAULT_SUBCATS);
-  FORMATO_LIST.splice(0, FORMATO_LIST.length, ...DEFAULT_FORMATO_LIST);
-  STATUS_LIST.splice(0, STATUS_LIST.length, ...DEFAULT_STATUS_LIST);
-  AI_LIST.splice(0, AI_LIST.length, ...DEFAULT_AI_LIST);
+  CATS.splice(0, CATS.length, ...DEFAULT_CATS.map(x => ({ ...x })));
+  SUBCATS.splice(0, SUBCATS.length, ...DEFAULT_SUBCATS.map(x => ({ ...x })));
+  FORMATO_LIST.splice(0, FORMATO_LIST.length, ...DEFAULT_FORMATO_LIST.map(x => ({ ...x })));
+  STATUS_LIST.splice(0, STATUS_LIST.length, ...DEFAULT_STATUS_LIST.map(x => ({ ...x })));
+  AI_LIST.splice(0, AI_LIST.length, ...DEFAULT_AI_LIST.map(x => ({ ...x })));
   saveCustomMeta();
   renderMetaManager();
   render();
@@ -1334,6 +1336,8 @@ function openMetaEditForm(container, arr, type, fields, protectedIds, idx) {
   btnCancel.addEventListener("click", () => renderMetaManager());
   const btnSave = document.createElement("button"); btnSave.className = "btn primary"; btnSave.textContent = "Salvar";
   btnSave.addEventListener("click", () => {
+    const nameVal = (inputs.name?.value || inputs.label?.value || "").trim();
+    if (!nameVal && (fields.includes("name") || fields.includes("label"))) { toast("Preencha o nome/label"); return; }
     fields.forEach(f => { if (f !== "id") item[f] = (inputs[f]?.value || "").trim(); });
     saveCustomMeta();
     renderMetaManager();

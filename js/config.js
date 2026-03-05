@@ -50,11 +50,11 @@ const DEFAULT_AI_LIST = [
 ];
 
 // ── Live mutable arrays (modified at runtime) ──
-let CATS = [...DEFAULT_CATS];
-let SUBCATS = [...DEFAULT_SUBCATS];
-let FORMATO_LIST = [...DEFAULT_FORMATO_LIST];
-let STATUS_LIST = [...DEFAULT_STATUS_LIST];
-let AI_LIST = [...DEFAULT_AI_LIST];
+let CATS = DEFAULT_CATS.map(x => ({ ...x }));
+let SUBCATS = DEFAULT_SUBCATS.map(x => ({ ...x }));
+let FORMATO_LIST = DEFAULT_FORMATO_LIST.map(x => ({ ...x }));
+let STATUS_LIST = DEFAULT_STATUS_LIST.map(x => ({ ...x }));
+let AI_LIST = DEFAULT_AI_LIST.map(x => ({ ...x }));
 
 // Computed lookups (rebuilt after load)
 let FORMATO_LABELS = {};
