@@ -1,4 +1,11 @@
 const DEFAULT_KV_KEY = "banco_prompts_v3";
+const MAX_SYNC_PAYLOAD_BYTES = 1024 * 1024;
+
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+  "Cache-Control": "no-store",
+};
 
 function buildCorsHeaders(request, allowedOrigin) {
   const origin = request.headers.get("Origin") || "";
@@ -18,6 +25,7 @@ function jsonResponse(payload, status, cors) {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
+      ...SECURITY_HEADERS,
       ...cors,
     },
   });
@@ -57,18 +65,30 @@ export default {
           status: 200,
           headers: {
             "content-type": "application/json; charset=utf-8",
+            ...SECURITY_HEADERS,
             ...cors,
           },
         });
       }
 
       if (request.method === "POST") {
+        const contentLength = Number.parseInt(request.headers.get("Content-Length") || "0", 10);
+        if (Number.isFinite(contentLength) && contentLength > MAX_SYNC_PAYLOAD_BYTES) {
+          return jsonResponse({ error: "payload_too_large" }, 413, cors);
+        }
+
         const body = await request.text();
+        if (body.length > MAX_SYNC_PAYLOAD_BYTES) {
+          return jsonResponse({ error: "payload_too_large" }, 413, cors);
+        }
 
         try {
           const parsed = JSON.parse(body);
-          if (!parsed || typeof parsed !== "object") {
+          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
             return jsonResponse({ error: "invalid_payload" }, 400, cors);
+          }
+          if (!Array.isArray(parsed.prompts)) {
+            return jsonResponse({ error: "invalid_prompts" }, 400, cors);
           }
         } catch {
           return jsonResponse({ error: "invalid_json" }, 400, cors);
@@ -87,7 +107,7 @@ export default {
 
     return new Response("Static assets indisponíveis neste deploy.", {
       status: 503,
-      headers: { "content-type": "text/plain; charset=utf-8", ...cors },
+      headers: { "content-type": "text/plain; charset=utf-8", ...SECURITY_HEADERS, ...cors },
     });
   },
 };
