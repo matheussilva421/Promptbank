@@ -104,7 +104,7 @@ function renderDock() {
     d.draggable = true;
     d.dataset.catId = cat.id;
     const count = promptsForCat(cat.id).length;
-    d.innerHTML = `${cat.icon}<div class="tooltip">${esc(cat.name)} (${count})</div>`;
+    d.innerHTML = `${esc(cat.icon)}<div class="tooltip">${esc(cat.name)} (${count})</div>`;
     d.addEventListener("click", () => {
       S.cat = cat.id; S.subcat = ""; S.sideSearch = ""; S.search = "";
       S.filterFormato = ""; S.filterStatus = ""; S.filterTags = []; S.filterAis = [];
@@ -391,7 +391,7 @@ function renderMain() {
     const e = document.createElement("div"); e.className = "empty-state";
     const catObj = CATS.find(c => c.id === S.cat);
     const btnHtml = hasActiveFilters() ? `<button class="btn ghost sm" onclick="$('#btnClearFilters').click()" style="margin-top:10px;">Limpar Filtros</button>` : `<button class="btn primary sm" onclick="openEditor()" style="margin-top:10px;">+ Criar Novo Prompt</button>`;
-    e.innerHTML = `<div class="empty-icon">${catObj?.icon || "📂"}</div><div class="empty-title">${hasActiveFilters() ? "Nenhum resultado" : "Nenhum prompt aqui ainda"}</div><div class="empty-sub">${hasActiveFilters() ? "Tente limpar os filtros" : "Clique abaixo para começar"}</div>${btnHtml}`;
+    e.innerHTML = `<div class="empty-icon">${esc(catObj?.icon || "📂")}</div><div class="empty-title">${hasActiveFilters() ? "Nenhum resultado" : "Nenhum prompt aqui ainda"}</div><div class="empty-sub">${hasActiveFilters() ? "Tente limpar os filtros" : "Clique abaixo para começar"}</div>${btnHtml}`;
     grid.appendChild(e);
     return;
   }
@@ -768,7 +768,7 @@ function renderPalette(q = "") {
     d.className = "palette-item" + (i === _paletteIdx ? " active" : "");
     d.style.cssText = "display:flex;align-items:center;gap:12px;padding:10px 12px;cursor:pointer;border-radius:8px;margin-bottom:2px;";
     if (i === _paletteIdx) d.style.background = "var(--blue-g)";
-    d.innerHTML = `<span style="font-size:18px;">${it.icon}</span><div style="flex:1;"><div style="font-weight:600;font-size:14px;">${esc(it.label)}</div>${it.sub ? `<div style="font-size:11px;color:var(--t3);">${esc(it.sub)}</div>` : ""}</div>`;
+    d.innerHTML = `<span style="font-size:18px;">${esc(it.icon)}</span><div style="flex:1;"><div style="font-weight:600;font-size:14px;">${esc(it.label)}</div>${it.sub ? `<div style="font-size:11px;color:var(--t3);">${esc(it.sub)}</div>` : ""}</div>`;
     d.addEventListener("click", () => { closePalette(); it.action(); });
     results.appendChild(d);
   });
