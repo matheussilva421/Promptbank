@@ -1094,7 +1094,7 @@ if (mobileToggle) {
   });
 }
 
-window.addEventListener("localDataSaved", () => { syncStatus(); });
+
 
 // ── Theme ──
 $("#btnTheme").addEventListener("click", () => { const n = getTheme() === "light" ? "dark" : "light"; setTheme(n); applyColor(currentColorIndex); toast(n === "light" ? "Tema claro ☀️" : "Tema escuro 🌙"); });
