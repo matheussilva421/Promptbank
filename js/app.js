@@ -4,6 +4,18 @@ loadManualOrder();
 loadSubcatOrder();
 loadUIState();
 
+// ── Global Error Boundaries ──
+window.addEventListener("error", (e) => {
+  if (e.message?.includes("ResizeObserver")) return; // Ignorar warning benigno comum em extensões/chrome
+  console.error("Global Error Caught:", e.error || e.message);
+  if (typeof toast === "function") toast("Ocorreu um erro inesperado ❌");
+});
+
+window.addEventListener("unhandledrejection", (e) => {
+  console.error("Unhandled Promise Rejection:", e.reason);
+  if (typeof toast === "function") toast("Falha temporal na comunicação ⚠️");
+});
+
 window.addEventListener("beforeunload", e => {
   if (editorHasChanges()) {
     e.preventDefault();
