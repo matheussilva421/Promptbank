@@ -303,7 +303,7 @@ function save(d, bumpTime = true, syncFlush = false) {
 
   const doSave = () => {
     try {
-      localStorage.setItem(LS_KEY_V3, JSON.stringify(d, null, 2));
+      localStorage.setItem(LS_KEY_V3, JSON.stringify(d));
       window.dispatchEvent(new Event("localDataSaved"));
     } catch (err) {
       console.error("Erro localStorage", err);

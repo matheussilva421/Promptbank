@@ -10,6 +10,7 @@
   --blue: #14B2E4;
   --blue2: #0d8ab5;
   --blue-g: rgba(20, 178, 228, .15);
+  --blue-b: rgba(20, 178, 228, .3);
   --amber: #F5A623;
   --red: #FF4D5E;
   --green: #34d399;
@@ -46,6 +47,7 @@
   --blue: #0d8ab5;
   --blue2: #0a6e91;
   --blue-g: rgba(13, 138, 181, .12);
+  --blue-b: rgba(13, 138, 181, .3);
   --amber: #b97200;
   --red: #c0182a;
   --green: #15803d;
@@ -669,6 +671,7 @@ a {
   cursor: pointer;
   flex-shrink: 0;
 }
+
 .active-filter-chip button {
   background: none;
   border: none;
@@ -1478,6 +1481,24 @@ a {
   to {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+
+  40%,
+  80% {
+    transform: translateX(4px);
   }
 }
 

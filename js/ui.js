@@ -351,7 +351,7 @@ function renderSidePanel() {
   }
 }
 
-function renderSortBar() {
+function renderSortBar(catTotal, filteredTotal) {
   const bar = $("#sortBar");
   const opts = [
     { id: "updated-desc", label: "🕒 Última edição" },
@@ -379,15 +379,15 @@ function renderSortBar() {
 
   const counter = document.createElement("div");
   counter.className = "result-counter";
-  const total = promptsForCat(S.cat).length;
-  const current = filteredPromptsBase().length;
-  counter.textContent = `Mostrando ${current} de ${total} prompts`;
+  counter.textContent = `Mostrando ${filteredTotal} de ${catTotal} prompts`;
   bar.appendChild(counter);
 }
 
 function renderMain() {
   syncPromptSortForCurrentCat();
-  renderSortBar();
+  const _catTotal = promptsForCat(S.cat).length;
+  const _filteredTotal = filteredPromptsBase().length;
+  renderSortBar(_catTotal, _filteredTotal);
   // Active filter bar
   const bar = $("#activeFilterBar"); bar.innerHTML = "";
   const addChip = (label, onRemove) => {
@@ -1036,7 +1036,7 @@ $("#btnConfirmDelete").addEventListener("click", () => {
     S.undoTimeout = setTimeout(() => { S.lastDeletedPrompt = null; }, 30000);
   }
   save(data); closeEditor(true); render();
-  const deletedToast = toast("Prompt excluído 🗑️");
+  const deletedToast = toast("Prompt excluído 🗑️", 8000);
 
   if (S.lastDeletedPrompt) {
     const t = deletedToast;
@@ -1152,8 +1152,21 @@ $("#btnCancelVarModal").addEventListener("click", () => { pendingCopyText = ""; 
 $("#varModal").addEventListener("click", e => { if (e.target === e.currentTarget) { pendingCopyText = ""; $("#varModal").classList.remove("show"); } });
 $("#btnConfirmVarModal").addEventListener("click", () => {
   if (!pendingCopyText) { $("#varModal").classList.remove("show"); return; }
-  let finalTxt = pendingCopyText;
+  // UX-2: Warn about empty variable fields before copying
   const inputs = document.querySelectorAll("#varFieldsContainer input");
+  let hasEmpty = false;
+  inputs.forEach(inp => {
+    if (!inp.value.trim()) {
+      hasEmpty = true;
+      inp.style.borderColor = "var(--red)";
+      inp.style.animation = "shake 0.3s ease";
+      setTimeout(() => { inp.style.borderColor = ""; inp.style.animation = ""; }, 1500);
+    }
+  });
+  if (hasEmpty) {
+    toast("⚠️ Campos vazios serão mantidos como {{variável}}");
+  }
+  let finalTxt = pendingCopyText;
   inputs.forEach(inp => {
     const v = inp.dataset.var;
     const val = inp.value || `{{${v}}}`;
@@ -1164,7 +1177,8 @@ $("#btnConfirmVarModal").addEventListener("click", () => {
 });
 function duplicatePrompt(id) {
   const p = allPrompts().find(x => x.id === id); if (!p) return;
-  const copy = { ...p, id: uid(), title: "[Cópia] " + p.title, status: "teste", pinned: false, createdAt: nowISO(), updatedAt: nowISO() };
+  // BUG-2 fix: deep copy tags array to prevent shared reference
+  const copy = { ...p, id: uid(), title: "[Cópia] " + p.title, status: "teste", pinned: false, tags: [...(p.tags || [])], createdAt: nowISO(), updatedAt: nowISO() };
   delete copy.lastCopiedAt;
   data.prompts.push(copy); save(data); render();
   toast("Prompt duplicado 🔁");
