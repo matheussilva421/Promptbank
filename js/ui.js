@@ -47,6 +47,17 @@ function promptsForCat(cat) {
     return p.categoria === cat;
   });
 }
+
+// Cache search strings to prevent rebuilding them on every keystroke/render
+const _searchStringCache = new WeakMap();
+function getSearchString(p) {
+  let cached = _searchStringCache.get(p);
+  if (cached && cached.updatedAt === p.updatedAt) return cached.text;
+  const text = [p.title, p.text, ...(p.tags || []), p.quandoUsar, p.note].filter(Boolean).join(" ").toLowerCase();
+  _searchStringCache.set(p, { updatedAt: p.updatedAt, text });
+  return text;
+}
+
 function filteredPromptsBase() {
   let ps = promptsForCat(S.cat);
   if (S.cat === "analise" && S.subcat) ps = ps.filter(p => p.subcategoria === S.subcat);
@@ -54,7 +65,7 @@ function filteredPromptsBase() {
   if (q) {
     const words = q.split(/\s+/).filter(Boolean);
     ps = ps.filter(p => {
-      const content = [p.title, p.text, ...(p.tags || []), p.quandoUsar, p.note].filter(Boolean).join(" ").toLowerCase();
+      const content = getSearchString(p);
       return words.every(w => content.includes(w));
     });
   }
