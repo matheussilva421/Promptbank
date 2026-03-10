@@ -49,20 +49,41 @@ function promptsForCat(cat) {
 }
 function filteredPromptsBase() {
   let ps = promptsForCat(S.cat);
-  if (S.cat === "analise" && S.subcat) ps = ps.filter(p => p.subcategoria === S.subcat);
+
   const q = (S.search || S.sideSearch).trim().toLowerCase();
-  if (q) {
-    const words = q.split(/\s+/).filter(Boolean);
-    ps = ps.filter(p => {
-      const content = [p.title, p.text, ...(p.tags || []), p.quandoUsar, p.note].filter(Boolean).join(" ").toLowerCase();
-      return words.every(w => content.includes(w));
-    });
+  const words = q ? q.split(/\s+/).filter(Boolean) : null;
+
+  const hasSubcat = S.cat === "analise" && S.subcat;
+  const hasFormato = !!S.filterFormato;
+  const hasStatus = !!S.filterStatus;
+  const hasTags = S.filterTags.length > 0;
+  const hasAis = S.filterAis.length > 0;
+
+  if (!hasSubcat && !words && !hasFormato && !hasStatus && !hasTags && !hasAis) {
+    return ps;
   }
-  if (S.filterFormato) ps = ps.filter(p => p.formato === S.filterFormato);
-  if (S.filterStatus) ps = ps.filter(p => p.status === S.filterStatus);
-  if (S.filterTags.length) ps = ps.filter(p => S.filterTags.every(ft => (p.tags || []).includes(ft)));
-  if (S.filterAis.length) ps = ps.filter(p => S.filterAis.includes((p.ai || "").toLowerCase()));
-  return ps;
+
+  return ps.filter(p => {
+    if (hasSubcat && p.subcategoria !== S.subcat) return false;
+
+    if (words) {
+      const content = [p.title, p.text, ...(p.tags || []), p.quandoUsar, p.note].filter(Boolean).join(" ").toLowerCase();
+      if (!words.every(w => content.includes(w))) return false;
+    }
+
+    if (hasFormato && p.formato !== S.filterFormato) return false;
+    if (hasStatus && p.status !== S.filterStatus) return false;
+
+    if (hasTags) {
+      if (!S.filterTags.every(ft => (p.tags || []).includes(ft))) return false;
+    }
+
+    if (hasAis) {
+      if (!S.filterAis.includes((p.ai || "").toLowerCase())) return false;
+    }
+
+    return true;
+  });
 }
 function filteredPrompts() {
   const ps = filteredPromptsBase().slice();
