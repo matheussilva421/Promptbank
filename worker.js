@@ -9,15 +9,33 @@ const SECURITY_HEADERS = {
 
 function buildCorsHeaders(request, allowedOrigin) {
   const origin = request.headers.get("Origin") || "";
-  const finalOrigin = allowedOrigin === "*" ? "*" : origin === allowedOrigin ? origin : allowedOrigin;
 
-  return {
-    "Access-Control-Allow-Origin": finalOrigin,
+  // If allowedOrigin is not set, we don't allow any cross-origin requests by default.
+  let finalOrigin = "";
+  if (allowedOrigin === "*") {
+    finalOrigin = "*";
+  } else if (allowedOrigin) {
+    const allowed = allowedOrigin.split(",").map((o) => o.trim());
+    if (allowed.includes(origin)) {
+      finalOrigin = origin;
+    } else if (allowed.length > 0 && !allowedOrigin.includes(",")) {
+      // Fallback to the single allowed origin if it doesn't match and isn't a list
+      finalOrigin = allowedOrigin;
+    }
+  }
+
+  const headers = {
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type,Authorization",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
+
+  if (finalOrigin) {
+    headers["Access-Control-Allow-Origin"] = finalOrigin;
+  }
+
+  return headers;
 }
 
 function jsonResponse(payload, status, cors) {
@@ -33,7 +51,7 @@ function jsonResponse(payload, status, cors) {
 
 export default {
   async fetch(request, env) {
-    const allowedOrigin = env.ALLOWED_ORIGIN || "*";
+    const allowedOrigin = env.ALLOWED_ORIGIN;
     const cors = buildCorsHeaders(request, allowedOrigin);
     const url = new URL(request.url);
 
