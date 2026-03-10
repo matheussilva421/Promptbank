@@ -4,6 +4,41 @@ const GDRIVE_FNAME = "banco_prompts.json";
 const CFSYNC_URL_KEY = "bancoPrompts_cfSyncUrl";
 const CFSYNC_TOKEN_KEY = "bancoPrompts_cfSyncToken";
 
+function getSyncPayload(content) {
+  const payload = { ...content };
+  payload.customMeta = {
+    CATS: typeof CATS !== "undefined" ? CATS : [],
+    SUBCATS: typeof SUBCATS !== "undefined" ? SUBCATS : [],
+    FORMATO_LIST: typeof FORMATO_LIST !== "undefined" ? FORMATO_LIST : [],
+    STATUS_LIST: typeof STATUS_LIST !== "undefined" ? STATUS_LIST : [],
+    AI_LIST: typeof AI_LIST !== "undefined" ? AI_LIST : []
+  };
+  payload.uiOrders = {
+    catOrder: typeof S !== "undefined" ? S.catOrder : [],
+    manualOrder: typeof S !== "undefined" ? S.manualOrder : {},
+    subcatOrder: localStorage.getItem("bancoPrompts_subcatOrder_v1") || "[]"
+  };
+  return payload;
+}
+
+function applySyncPayload(remote) {
+  if (remote.customMeta) {
+    const rm = remote.customMeta;
+    if (Array.isArray(rm.CATS)) CATS.splice(0, CATS.length, ...rm.CATS);
+    if (Array.isArray(rm.SUBCATS)) SUBCATS.splice(0, SUBCATS.length, ...rm.SUBCATS);
+    if (Array.isArray(rm.FORMATO_LIST)) FORMATO_LIST.splice(0, FORMATO_LIST.length, ...rm.FORMATO_LIST);
+    if (Array.isArray(rm.STATUS_LIST)) STATUS_LIST.splice(0, STATUS_LIST.length, ...rm.STATUS_LIST);
+    if (Array.isArray(rm.AI_LIST)) AI_LIST.splice(0, AI_LIST.length, ...rm.AI_LIST);
+    if (typeof saveCustomMeta === "function") saveCustomMeta();
+  }
+  if (remote.uiOrders && typeof S !== "undefined") {
+    const ru = remote.uiOrders;
+    if (Array.isArray(ru.catOrder)) { S.catOrder = ru.catOrder; if (typeof saveCatOrder === "function") saveCatOrder(); }
+    if (ru.manualOrder && typeof ru.manualOrder === "object") { S.manualOrder = ru.manualOrder; if (typeof saveManualOrder === "function") saveManualOrder(); }
+    if (typeof ru.subcatOrder === "string") { lsSet("bancoPrompts_subcatOrder_v1", ru.subcatOrder); if (typeof loadSubcatOrder === "function") loadSubcatOrder(); }
+  }
+}
+
 let driveState = {
   clientId: localStorage.getItem(GDRIVE_LS_KEY) || "",
   token: null,
@@ -60,7 +95,8 @@ async function driveDownload(fileId) {
   return await r.json();
 }
 async function driveUpload(content, fileId) {
-  const body = JSON.stringify(content, null, 2);
+  const payload = getSyncPayload(content);
+  const body = JSON.stringify(payload, null, 2);
   const meta = JSON.stringify({ name: GDRIVE_FNAME, mimeType: "application/json" });
   const boundary = "bprompts_bnd";
   const multipart = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
@@ -117,6 +153,7 @@ async function driveInitialSync() {
         const remoteCandidate = remote.version === 3 ? remote : (remote.version === 2 ? migrateV2toV3(remote) : data);
         const remoteNormalized = normalizePromptPayload(remoteCandidate);
         data = normalizePromptPayload(mergeData(data, remoteNormalized));
+        applySyncPayload(remote);
         save(data, false); render(); toast("Dados sincronizados no Drive ☁️");
 
         const mergedTime = new Date(data.updatedAt || 0).getTime();
@@ -188,7 +225,8 @@ async function cfFetch(method, body) {
 }
 async function cfSyncNow() {
   if (!hasCloudflareConfigured()) return;
-  const r = await cfFetch("POST", data);
+  const payload = getSyncPayload(data);
+  const r = await cfFetch("POST", payload);
   if (!r.ok) throw new Error(`Cloudflare POST falhou (${r.status})`);
 }
 function cfSyncDebounced() {
@@ -243,6 +281,7 @@ async function cfInitialSync() {
       const remoteCandidate = remote.version === 3 ? remote : migrateV2toV3(remote);
       const remoteNormalized = normalizePromptPayload(remoteCandidate);
       data = normalizePromptPayload(mergeData(data, remoteNormalized));
+      applySyncPayload(remote);
       save(data, false); render(); toast("Dados sincronizados no Cloudflare ☁️");
 
       const mergedTime = new Date(data.updatedAt || 0).getTime();

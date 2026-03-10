@@ -1377,7 +1377,7 @@ function dl(name, content, type = "application/json") {
   const a = document.createElement("a"); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(u);
 }
 $("#btnSettings").addEventListener("click", () => { if (typeof openDriveSetupModal === "function") openDriveSetupModal(); });
-$("#btnExport").addEventListener("click", () => { dl("banco-prompts.json", JSON.stringify(data, null, 2)); toast("Exportado ⬇️"); });
+$("#btnExport").addEventListener("click", () => { dl("banco-prompts.json", JSON.stringify(typeof getSyncPayload === "function" ? getSyncPayload(data) : data, null, 2)); toast("Exportado ⬇️"); });
 $("#btnImport").addEventListener("click", () => $("#importFile").click());
 $("#btnImportWord")?.addEventListener("click", () => openWordImportModal());
 $("#btnCloseWordImport")?.addEventListener("click", () => closeWordImportModal());
@@ -1438,7 +1438,9 @@ $("#importFile").addEventListener("change", async e => {
     if (d?.version === 3 && Array.isArray(d.prompts)) {
       const proceed = await customConfirm("Atenção", "Importar vai substituir os dados atuais. Deseja continuar?");
       if (!proceed) return;
-      data = normalizePromptPayload(d); save(data, false); render(); toast("Importado ✅");
+      data = normalizePromptPayload(d);
+      if (typeof applySyncPayload === "function") applySyncPayload(d);
+      save(data, false); render(); toast("Importado ✅");
     } else if (d?.version === 2 && Array.isArray(d.categories)) {
       const migrate = await customConfirm("Migração v2", "Arquivo v2 detectado. Migrar e combinar com os dados atuais?");
       if (!migrate) return;

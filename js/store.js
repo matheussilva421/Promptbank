@@ -37,7 +37,10 @@ const SUBCAT_ORDER_KEY = "bancoPrompts_subcatOrder_v1";
 // Load custom metadata early (before anything uses CATS/SUBCATS/etc.)
 loadCustomMeta();
 
-function saveSubcatOrder() { lsSet(SUBCAT_ORDER_KEY, JSON.stringify(SUBCATS.map(sc => sc.id))); }
+function saveSubcatOrder() {
+  lsSet(SUBCAT_ORDER_KEY, JSON.stringify(SUBCATS.map(sc => sc.id)));
+  if (typeof data !== "undefined" && typeof save === "function") save(data);
+}
 function loadSubcatOrder() {
   try {
     const raw = localStorage.getItem(SUBCAT_ORDER_KEY);
@@ -114,7 +117,10 @@ function loadUIState() {
   } catch (e) { }
 }
 
-function saveCatOrder() { lsSet(CAT_ORDER_KEY, JSON.stringify(S.catOrder)); }
+function saveCatOrder() {
+  lsSet(CAT_ORDER_KEY, JSON.stringify(S.catOrder));
+  if (typeof data !== "undefined" && typeof save === "function") save(data);
+}
 function loadCatOrder() {
   try {
     const raw = localStorage.getItem(CAT_ORDER_KEY);
@@ -127,7 +133,10 @@ function loadCatOrder() {
     S.catOrder = filtered;
   } catch (e) { }
 }
-function saveManualOrder() { lsSet(MANUAL_ORDER_KEY, JSON.stringify(S.manualOrder || {})); }
+function saveManualOrder() {
+  lsSet(MANUAL_ORDER_KEY, JSON.stringify(S.manualOrder || {}));
+  if (typeof data !== "undefined" && typeof save === "function") save(data);
+}
 function loadManualOrder() {
   try {
     const raw = localStorage.getItem(MANUAL_ORDER_KEY);

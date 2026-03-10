@@ -108,4 +108,5 @@ function saveCustomMeta() {
   lsSet(LS_CUSTOM_AIS, JSON.stringify(AI_LIST));
   rebuildLabelMaps();
   rebuildEditableCats();
+  if (typeof data !== "undefined" && typeof save === "function") save(data);
 }
