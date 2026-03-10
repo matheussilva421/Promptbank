@@ -7,8 +7,8 @@ binding = "PROMPTBANK_KV"
 id = "f7a7ead8912145ff8c764ae1277e16c9"
 
 [vars]
-# Defina no dashboard/secrets em produção
-ALLOWED_ORIGIN = "*"
+# Defina no dashboard/secrets em produção (ex: "https://seu-app.pages.dev")
+# ALLOWED_ORIGIN = "*"
 KV_KEY = "banco_prompts_v3"
 
 [assets]
