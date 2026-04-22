@@ -58,22 +58,32 @@ function getSearchString(p) {
   return text;
 }
 
-function filteredPromptsBase() {
-  let ps = promptsForCat(S.cat);
-  if (S.cat === "analise" && S.subcat) ps = ps.filter(p => p.subcategoria === S.subcat);
-  const q = (S.search || S.sideSearch).trim().toLowerCase();
-  if (q) {
-    const words = q.split(/\s+/).filter(Boolean);
-    ps = ps.filter(p => {
+function getActiveSearchTerms() {
+  return `${S.search || ""} ${S.sideSearch || ""}`.trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+function applyPromptFilters(ps, opts = {}) {
+  const skip = opts.skipFacet || null;
+  const words = getActiveSearchTerms();
+  let filtered = ps.slice();
+
+  if (words.length) {
+    filtered = filtered.filter(p => {
       const content = getSearchString(p);
       return words.every(w => content.includes(w));
     });
   }
-  if (S.filterFormato) ps = ps.filter(p => p.formato === S.filterFormato);
-  if (S.filterStatus) ps = ps.filter(p => p.status === S.filterStatus);
-  if (S.filterTags.length) ps = ps.filter(p => S.filterTags.every(ft => (p.tags || []).includes(ft)));
-  if (S.filterAis.length) ps = ps.filter(p => S.filterAis.includes((p.ai || "").toLowerCase()));
-  return ps;
+  if (skip !== "formato" && S.filterFormato.length) filtered = filtered.filter(p => S.filterFormato.includes(p.formato));
+  if (skip !== "status" && S.filterStatus.length) filtered = filtered.filter(p => S.filterStatus.includes(p.status || "teste"));
+  if (skip !== "tags" && S.filterTags.length) filtered = filtered.filter(p => S.filterTags.some(ft => (p.tags || []).includes(ft)));
+  if (skip !== "ais" && S.filterAis.length) filtered = filtered.filter(p => S.filterAis.includes((p.ai || "").toLowerCase()));
+  return filtered;
+}
+
+function filteredPromptsBase() {
+  let ps = promptsForCat(S.cat);
+  if (S.cat === "analise" && S.subcat) ps = ps.filter(p => p.subcategoria === S.subcat);
+  return applyPromptFilters(ps);
 }
 function filteredPrompts() {
   const ps = filteredPromptsBase().slice();
@@ -99,7 +109,21 @@ function filteredPrompts() {
   return sorted;
 }
 function hasActiveFilters() {
-  return S.search || S.sideSearch || S.filterFormato || S.filterStatus || S.filterTags.length || S.filterAis.length;
+  return S.search || S.sideSearch || S.filterFormato.length || S.filterStatus.length || S.filterTags.length || S.filterAis.length;
+}
+
+function clearAllFiltersAndSearch() {
+  S.search = "";
+  S.sideSearch = "";
+  S.filterFormato = [];
+  S.filterStatus = [];
+  S.filterTags = [];
+  S.filterAis = [];
+  $("#globalSearch").value = "";
+  const side = $("#sideSearch");
+  if (side) side.value = "";
+  updateClearBtnVisibility();
+  saveUIState();
 }
 
 function clearBulkSelection() {
@@ -174,8 +198,9 @@ function renderDock() {
     d.addEventListener("click", () => {
       S.cat = cat.id; S.subcat = ""; S.sideSearch = ""; S.search = "";
       syncPromptSortForCurrentCat();
-      S.filterFormato = ""; S.filterStatus = ""; S.filterTags = []; S.filterAis = [];
+      S.filterFormato = []; S.filterStatus = []; S.filterTags = []; S.filterAis = [];
       $("#sideSearch").value = ""; $("#globalSearch").value = "";
+      updateClearBtnVisibility();
       saveUIState();
       render();
     });
@@ -218,6 +243,21 @@ function renderSidePanel() {
 
   const body = $("#panelBody");
   body.innerHTML = "";
+  const footer = $("#panelFooter");
+  let panelClearBtn = $("#btnPanelClearFilters");
+  if (!panelClearBtn && footer) {
+    panelClearBtn = document.createElement("button");
+    panelClearBtn.id = "btnPanelClearFilters";
+    panelClearBtn.className = "btn ghost";
+    panelClearBtn.textContent = "Limpar filtros";
+    panelClearBtn.addEventListener("click", () => {
+      clearAllFiltersAndSearch();
+      renderSidePanel();
+      renderMain();
+    });
+    footer.insertBefore(panelClearBtn, $("#btnNewPrompt"));
+  }
+  if (panelClearBtn) panelClearBtn.style.display = hasActiveFilters() ? "" : "none";
 
   // Subcategory nav for analise
   if (S.cat === "analise") {
@@ -271,7 +311,14 @@ function renderSidePanel() {
   }
 
   // Formato filter
-  const formatosUsed = [...new Set(catPrompts.map(p => p.formato).filter(Boolean))];
+  const sideQ = (S.sideSearch || "").trim().toLowerCase();
+  const formatosBase = applyPromptFilters(catPrompts, { skipFacet: "formato" });
+  const formatosCount = {};
+  formatosBase.forEach(p => {
+    if (!p.formato) return;
+    formatosCount[p.formato] = (formatosCount[p.formato] || 0) + 1;
+  });
+  const formatosUsed = Object.keys(formatosCount).filter(f => !sideQ || (FORMATO_LABELS[f] || f).toLowerCase().includes(sideQ));
   if (formatosUsed.length) {
     const fl = document.createElement("div"); fl.className = "filter-section";
     fl.innerHTML = `<div class="filter-label">Formato</div><div class="filter-chips" id="formatoChips"></div>`;
@@ -279,15 +326,25 @@ function renderSidePanel() {
     const chips = fl.querySelector("#formatoChips");
     formatosUsed.forEach(f => {
       const c = document.createElement("span");
-      c.className = "chip" + (S.filterFormato === f ? " active" : "");
-      c.textContent = FORMATO_LABELS[f] || f;
-      c.addEventListener("click", () => { S.filterFormato = S.filterFormato === f ? "" : f; renderSidePanel(); renderMain(); });
+      c.className = "chip" + (S.filterFormato.includes(f) ? " active" : "");
+      c.textContent = `${FORMATO_LABELS[f] || f} ${formatosCount[f] || 0}`;
+      c.addEventListener("click", () => {
+        S.filterFormato = S.filterFormato.includes(f) ? S.filterFormato.filter(x => x !== f) : [...S.filterFormato, f];
+        saveUIState();
+        renderSidePanel(); renderMain();
+      });
       chips.appendChild(c);
     });
   }
 
   // Status filter
-  const statusUsed = [...new Set(catPrompts.map(p => p.status || "teste").filter(Boolean))];
+  const statusBase = applyPromptFilters(catPrompts, { skipFacet: "status" });
+  const statusCount = {};
+  statusBase.forEach(p => {
+    const st = p.status || "teste";
+    statusCount[st] = (statusCount[st] || 0) + 1;
+  });
+  const statusUsed = Object.keys(statusCount).filter(st => !sideQ || (STATUS_LABELS[st] || st).toLowerCase().includes(sideQ));
   if (statusUsed.length) {
     const fl2 = document.createElement("div"); fl2.className = "filter-section";
     fl2.innerHTML = `<div class="filter-label">Status</div><div class="filter-chips" id="statusChips"></div>`;
@@ -295,27 +352,42 @@ function renderSidePanel() {
     const chips2 = fl2.querySelector("#statusChips");
     statusUsed.forEach(st => {
       const c = document.createElement("span");
-      c.className = "chip" + (S.filterStatus === st ? " active" : "");
-      c.textContent = STATUS_LABELS[st] || st;
-      c.addEventListener("click", () => { S.filterStatus = S.filterStatus === st ? "" : st; renderSidePanel(); renderMain(); });
+      c.className = "chip" + (S.filterStatus.includes(st) ? " active" : "");
+      c.textContent = `${STATUS_LABELS[st] || st} ${statusCount[st] || 0}`;
+      c.addEventListener("click", () => {
+        S.filterStatus = S.filterStatus.includes(st) ? S.filterStatus.filter(x => x !== st) : [...S.filterStatus, st];
+        saveUIState();
+        renderSidePanel(); renderMain();
+      });
       chips2.appendChild(c);
     });
   }
 
   // AI filter
-  const aisUsed = [...new Set(catPrompts.map(p => p.ai).filter(Boolean))];
-  if (aisUsed.length > 1) {
+  const aisBase = applyPromptFilters(catPrompts, { skipFacet: "ais" });
+  const aisCount = {};
+  aisBase.forEach(p => {
+    const ai = (p.ai || "").toLowerCase();
+    if (!ai) return;
+    aisCount[ai] = (aisCount[ai] || 0) + 1;
+  });
+  const aisUsed = Object.keys(aisCount).filter(ai => {
+    const aiLabel = (AI_LIST.find(a => a.id === ai)?.label) || (ai.charAt(0).toUpperCase() + ai.slice(1));
+    return !sideQ || aiLabel.toLowerCase().includes(sideQ);
+  });
+  if (aisUsed.length) {
     const fl3 = document.createElement("div"); fl3.className = "filter-section";
     fl3.innerHTML = `<div class="filter-label">IA</div><div class="filter-chips" id="aiChips"></div>`;
     body.appendChild(fl3);
     const chips3 = fl3.querySelector("#aiChips");
-    aisUsed.forEach(ai => {
+    aisUsed.forEach(aiKey => {
       const c = document.createElement("span");
-      const aiKey = ai.toLowerCase();
       c.className = "chip" + (S.filterAis.includes(aiKey) ? " active" : "");
-      c.textContent = (AI_LIST.find(a => a.id === aiKey)?.label) || (ai.charAt(0).toUpperCase() + ai.slice(1));
+      const aiLabel = (AI_LIST.find(a => a.id === aiKey)?.label) || (aiKey.charAt(0).toUpperCase() + aiKey.slice(1));
+      c.textContent = `${aiLabel} ${aisCount[aiKey] || 0}`;
       c.addEventListener("click", () => {
         S.filterAis = S.filterAis.includes(aiKey) ? S.filterAis.filter(t => t !== aiKey) : [...S.filterAis, aiKey];
+        saveUIState();
         renderSidePanel(); renderMain();
       });
       chips3.appendChild(c);
@@ -323,9 +395,14 @@ function renderSidePanel() {
   }
 
   // Popular tags
+  const tagsBase = applyPromptFilters(catPrompts, { skipFacet: "tags" });
   const tagCounts = {};
-  catPrompts.forEach(p => (p.tags || []).forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
-  const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([t]) => t);
+  tagsBase.forEach(p => (p.tags || []).forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
+  const topTags = Object.entries(tagCounts)
+    .filter(([tag]) => !sideQ || tag.toLowerCase().includes(sideQ))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 12)
+    .map(([t]) => t);
   if (topTags.length) {
     const fl4 = document.createElement("div"); fl4.className = "filter-section";
     fl4.innerHTML = `<div class="filter-label">Tags</div><div class="filter-chips" id="tagChips"></div>`;
@@ -334,9 +411,10 @@ function renderSidePanel() {
     topTags.forEach(tag => {
       const c = document.createElement("span");
       c.className = "chip" + (S.filterTags.includes(tag) ? " active" : "");
-      c.textContent = "#" + tag;
+      c.textContent = `#${tag} ${tagCounts[tag] || 0}`;
       c.addEventListener("click", () => {
         S.filterTags = S.filterTags.includes(tag) ? S.filterTags.filter(t => t !== tag) : [...S.filterTags, tag];
+        saveUIState();
         renderSidePanel(); renderMain();
       });
       chips4.appendChild(c);
@@ -396,11 +474,11 @@ function renderMain() {
     c.querySelector("button").addEventListener("click", onRemove);
     bar.appendChild(c);
   };
-  if (S.search) addChip(`"${S.search}"`, () => { S.search = ""; $("#globalSearch").value = ""; renderMain(); });
-  if (S.filterFormato) addChip(FORMATO_LABELS[S.filterFormato] || S.filterFormato, () => { S.filterFormato = ""; renderSidePanel(); renderMain(); });
-  if (S.filterStatus) addChip(STATUS_LABELS[S.filterStatus] || S.filterStatus, () => { S.filterStatus = ""; renderSidePanel(); renderMain(); });
-  S.filterTags.forEach(t => addChip("#" + t, () => { S.filterTags = S.filterTags.filter(ft => ft !== t); renderSidePanel(); renderMain(); }));
-  S.filterAis.forEach(ai => addChip("IA:" + ai.toUpperCase(), () => { S.filterAis = S.filterAis.filter(a => a !== ai); renderSidePanel(); renderMain(); }));
+  if (S.search) addChip(`"${S.search}"`, () => { S.search = ""; $("#globalSearch").value = ""; saveUIState(); renderMain(); });
+  S.filterFormato.forEach(f => addChip(FORMATO_LABELS[f] || f, () => { S.filterFormato = S.filterFormato.filter(x => x !== f); saveUIState(); renderSidePanel(); renderMain(); }));
+  S.filterStatus.forEach(st => addChip(STATUS_LABELS[st] || st, () => { S.filterStatus = S.filterStatus.filter(x => x !== st); saveUIState(); renderSidePanel(); renderMain(); }));
+  S.filterTags.forEach(t => addChip("#" + t, () => { S.filterTags = S.filterTags.filter(ft => ft !== t); saveUIState(); renderSidePanel(); renderMain(); }));
+  S.filterAis.forEach(ai => addChip("IA:" + ai.toUpperCase(), () => { S.filterAis = S.filterAis.filter(a => a !== ai); saveUIState(); renderSidePanel(); renderMain(); }));
 
   // Clear button visibility
   $("#btnClearFilters").style.display = hasActiveFilters() ? "" : "none";
@@ -508,7 +586,7 @@ function renderMain() {
   _renderCtx.hasRemote = typeof hasAnyRemoteConfigured !== "undefined" && hasAnyRemoteConfigured();
   _renderCtx.lastSync = _renderCtx.hasRemote ? (localStorage.getItem("bancoPrompts_lastSyncTime") || "0") : "0";
   _highlightRegexes = [];
-  const _renderQuery = (S.search || S.sideSearch).trim();
+  const _renderQuery = `${S.search || ""} ${S.sideSearch || ""}`.trim();
   if (_renderQuery) {
     _renderQuery.toLowerCase().split(/\s+/).filter(Boolean).forEach(w => {
       try {
@@ -529,7 +607,7 @@ function renderMain() {
     return;
   }
 
-  if (S.cat === "analise" && !S.subcat && S.promptSort !== "manual" && !S.search && !S.sideSearch && S.filterTags.length === 0 && !S.filterFormato && !S.filterStatus && S.filterAis.length === 0) {
+  if (S.cat === "analise" && !S.subcat && S.promptSort !== "manual" && !S.search && !S.sideSearch && S.filterTags.length === 0 && S.filterFormato.length === 0 && S.filterStatus.length === 0 && S.filterAis.length === 0) {
     const grouped = {};
     ps.forEach(p => {
       const sc = p.subcategoria || "outros";
@@ -1203,31 +1281,42 @@ function updateClearBtnVisibility() {
   $("#btnClearSideSearch")?.classList.toggle("visible", !!(ss && ss.value));
 }
 $("#globalSearch").addEventListener("input", e => {
-  S.search = e.target.value; S.sideSearch = "";
-  const side = $("#sideSearch"); if (side) side.value = "";
+  S.search = e.target.value;
+  saveUIState();
   updateClearBtnVisibility();
+  renderSidePanel();
   renderMainDebounced();
 });
 document.addEventListener("input", e => {
   if (e.target.id === "sideSearch") {
-    S.sideSearch = e.target.value; S.search = "";
-    const gs = $("#globalSearch"); if (gs) gs.value = "";
+    S.sideSearch = e.target.value;
+    saveUIState();
     updateClearBtnVisibility();
+    renderSidePanel();
     renderMainDebounced();
   }
 });
 
-$("#btnClearGlobalSearch").addEventListener("click", () => { S.search = ""; $("#globalSearch").value = ""; updateClearBtnVisibility(); renderMain(); });
+$("#btnClearGlobalSearch").addEventListener("click", () => {
+  S.search = "";
+  $("#globalSearch").value = "";
+  saveUIState();
+  updateClearBtnVisibility();
+  renderSidePanel();
+  renderMain();
+});
 
 document.addEventListener("click", e => {
   if (e.target.id === "btnClearSideSearch") {
     S.sideSearch = ""; const ss = $("#sideSearch"); if (ss) ss.value = "";
-    updateClearBtnVisibility(); renderMain();
+    saveUIState();
+    updateClearBtnVisibility();
+    renderSidePanel();
+    renderMain();
   }
 });
 $("#btnClearFilters").addEventListener("click", () => {
-  S.search = ""; S.sideSearch = ""; S.filterFormato = ""; S.filterStatus = ""; S.filterTags = []; S.filterAis = [];
-  $("#globalSearch").value = ""; const side = $("#sideSearch"); if (side) side.value = "";
+  clearAllFiltersAndSearch();
   renderSidePanel(); renderMain();
 });
 
