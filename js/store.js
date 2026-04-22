@@ -4,7 +4,6 @@ let S = {
   subcat: "",         // for analise
   filterFormato: "",
   filterStatus: "",
-  filterPinned: false,
   filterTags: [],
   filterAis: [],
   search: "",
@@ -60,7 +59,7 @@ function loadSubcatOrder() {
 }
 
 function isValidPromptSort(sort) {
-  return ["updated-desc", "uses-desc", "title-asc", "title-desc", "manual"].includes(sort);
+  return ["updated-desc", "title-asc", "manual"].includes(sort);
 }
 
 function currentPromptSortKey() {
@@ -88,13 +87,7 @@ function saveUIState() {
     cat: S.cat,
     subcat: S.cat === "analise" ? S.subcat : "",
     promptSort: S.promptSort,
-    promptSortByCat: S.promptSortByCat,
-    search: S.search || "",
-    sideSearch: S.sideSearch || "",
-    filterFormato: Array.isArray(S.filterFormato) ? S.filterFormato : (S.filterFormato ? [S.filterFormato] : []),
-    filterStatus: Array.isArray(S.filterStatus) ? S.filterStatus : (S.filterStatus ? [S.filterStatus] : []),
-    filterTags: Array.isArray(S.filterTags) ? S.filterTags : [],
-    filterAis: Array.isArray(S.filterAis) ? S.filterAis : []
+    promptSortByCat: S.promptSortByCat
   }));
 }
 
@@ -116,13 +109,6 @@ function loadUIState() {
     if (st?.promptSort && isValidPromptSort(st.promptSort)) {
       if (!S.promptSortByCat[currentPromptSortKey()]) S.promptSortByCat[currentPromptSortKey()] = st.promptSort;
     }
-
-    S.search = typeof st?.search === "string" ? st.search : "";
-    S.sideSearch = typeof st?.sideSearch === "string" ? st.sideSearch : "";
-    S.filterFormato = Array.isArray(st?.filterFormato) ? st.filterFormato.filter(Boolean) : (st?.filterFormato ? [st.filterFormato] : []);
-    S.filterStatus = Array.isArray(st?.filterStatus) ? st.filterStatus.filter(Boolean) : (st?.filterStatus ? [st.filterStatus] : []);
-    S.filterTags = Array.isArray(st?.filterTags) ? st.filterTags.filter(Boolean) : [];
-    S.filterAis = Array.isArray(st?.filterAis) ? st.filterAis.map(a => String(a).toLowerCase()).filter(Boolean) : [];
 
     syncPromptSortForCurrentCat();
 
