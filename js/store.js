@@ -2,8 +2,9 @@
 let S = {
   cat: "todos",
   subcat: "",         // for analise
-  filterFormato: [],
-  filterStatus: [],
+  filterFormato: "",
+  filterStatus: "",
+  filterPinned: false,
   filterTags: [],
   filterAis: [],
   search: "",
