@@ -30,36 +30,46 @@
   <div id="toasts"></div>
 
   <div class="app">
-    <!-- ══ DOCK ══ -->
-    <nav class="dock">
-      <div class="dock-logo" title="Promptbank" aria-hidden="true" tabindex="-1">
-        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#2D3489" />
-              <stop offset="100%" stop-color="#14B2E4" />
-            </linearGradient>
-            <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#a78bfa" />
-              <stop offset="100%" stop-color="#14B2E4" />
-            </linearGradient>
-            <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-          </defs>
-          <rect width="100" height="100" rx="28" fill="url(#logoGrad)" />
+    <!-- ══ NAVIGATION SIDEBAR ══ -->
+    <aside class="dock">
+      <div class="dock-logo-wrap">
+        <div class="dock-logo" title="Promptbank" aria-hidden="true" tabindex="-1">
+          <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#2D3489" />
+                <stop offset="100%" stop-color="#14B2E4" />
+              </linearGradient>
+              <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#a78bfa" />
+                <stop offset="100%" stop-color="#14B2E4" />
+              </linearGradient>
+              <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+            <rect width="100" height="100" rx="28" fill="url(#logoGrad)" />
 
-          <!-- Terminal Prompt Arrow -->
-          <path d="M 30 25 L 55 50 L 30 75" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"
-            stroke-linejoin="round" />
+            <!-- Terminal Prompt Arrow -->
+            <path d="M 30 25 L 55 50 L 30 75" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"
+              stroke-linejoin="round" />
 
-          <!-- Data/Bank Bars -->
-          <rect x="62" y="38" width="12" height="12" rx="3" fill="url(#glow)" filter="url(#neonGlow)" />
-          <rect x="62" y="58" width="12" height="12" rx="3" fill="#FFFFFF" />
-        </svg>
+            <!-- Data/Bank Bars -->
+            <rect x="62" y="38" width="12" height="12" rx="3" fill="url(#glow)" filter="url(#neonGlow)" />
+            <rect x="62" y="58" width="12" height="12" rx="3" fill="#FFFFFF" />
+          </svg>
+        </div>
+        <div class="dock-brand">
+          <strong>Promptbank</strong>
+          <span>Banco de Prompts</span>
+        </div>
       </div>
-      <div id="dockCats"></div>
+      <div class="dock-nav-head">Menu</div>
+      <nav id="dockCats" class="dock-cats-nav" aria-label="Categorias principais"></nav>
+      <div class="dock-cta">
+        <button class="btn primary" id="btnNewPrompt">+ Novo Prompt</button>
+      </div>
       <div class="dock-bottom">
         <div class="dock-sep"></div>
         <div class="dock-icon-btn" id="btnDriveSync" data-state="off" title="Configurar / Sincronizar" role="button"
@@ -94,9 +104,9 @@
         </div>
         <input id="importFile" type="file" accept="application/json" style="display:none;">
       </div>
-    </nav>
+    </aside>
 
-    <!-- ══ SIDE PANEL ══ -->
+    <!-- ══ FILTER SIDEBAR ══ -->
     <aside class="side-panel" id="sidePanel">
       <button class="panel-mobile-toggle" id="btnMobilePanelToggle" aria-label="Expandir/recolher filtros">
         <span>▾ Filtros</span>
@@ -110,20 +120,35 @@
         </div>
         <div class="panel-search">
           <span style="color:var(--t3);font-size:13px;" aria-hidden="true">🔎</span>
-          <input type="search" id="sideSearch" placeholder="Buscar..." autocomplete="off">
+          <input type="search" id="sideSearch" placeholder="Buscar localmente..." autocomplete="off">
           <button class="input-clear-btn" id="btnClearSideSearch" title="Limpar busca"
             aria-label="Limpar campo de busca">✕</button>
         </div>
       </div>
+      <div class="panel-filters-title">Filtros · Formato · Status · IA · Tags</div>
       <div class="panel-body" id="panelBody"></div>
-      <div class="panel-footer" id="panelFooter">
-        <button class="btn primary" id="btnNewPrompt" style="flex:1;">+ Novo Prompt</button>
-      </div>
+      <div class="panel-footer" id="panelFooter"></div>
     </aside>
 
-    <!-- ══ MAIN ══ -->
+    <!-- ══ MAIN CONTENT ══ -->
     <main class="main">
       <div class="main-header">
+        <div class="main-top-controls" id="mainTopControls">
+          <div class="main-top-controls-left">
+            <button class="btn ghost sm" id="btnImportTop">⬆️ Importar</button>
+            <button class="btn ghost sm" id="btnExportTop">⬇️ Exportar</button>
+            <button class="btn ghost sm" id="btnThemeTop">🌗 Tema</button>
+          </div>
+          <div class="main-top-controls-right">
+            <button class="sync-inline" id="syncInlineStatus" type="button" aria-label="Abrir status de sincronização">
+              <span class="sync-inline-status-text" role="status" aria-live="polite">
+                <span class="sync-inline-dot" id="syncInlineDot" data-state="off"></span>
+                <span id="syncInlineText">Sync desativado</span>
+                <span class="sync-inline-time" id="syncInlineTime">—</span>
+              </span>
+            </button>
+          </div>
+        </div>
         <div class="search-row">
           <div class="search-input-wrap">
             <span style="color:var(--t3);" aria-hidden="true">🔍</span>
