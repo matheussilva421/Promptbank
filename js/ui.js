@@ -574,6 +574,7 @@ function renderMain() {
         else if (action === "copy") { e.stopPropagation(); copyPrompt(id); }
         else if (action === "edit") { e.stopPropagation(); openEditor(id); }
         else if (action === "dupe") { e.stopPropagation(); duplicatePrompt(id); }
+        else if (action === "more") { e.stopPropagation(); openDrawer(id); }
         else if (action === "archive") { e.stopPropagation(); toggleArchivePrompt(id); }
         else if (action === "pin") {
           e.stopPropagation();
@@ -602,6 +603,17 @@ function renderMain() {
       }
       if (S.suppressNextCardClick) return;
       openDrawer(id);
+    });
+    grid.addEventListener("keydown", e => {
+      const card = e.target.closest(".prompt-card");
+      if (!card) return;
+      const id = card.dataset.promptId;
+      if (!id) return;
+      if (e.key === "Enter" || e.key === " ") {
+        if (e.target.closest("[data-action]")) return;
+        e.preventDefault();
+        openDrawer(id);
+      }
     });
   }
   // Pre-compute render context once per cycle (avoids per-card localStorage reads & regex creation)
@@ -712,12 +724,15 @@ function buildCard(p) {
   const card = document.createElement("div");
   card.className = "prompt-card" + (S.promptSort === "manual" && !S.bulkSelectMode ? " manual-sort" : "") + (S.selectedPromptIds.includes(p.id) ? " selected" : "");
   card.dataset.promptId = p.id;
+  card.tabIndex = 0;
   const statusClass = "badge-" + (p.status || "teste");
   const statusLabel = STATUS_LABELS[p.status || "teste"] || p.status;
   const formatoLabel = FORMATO_LABELS[p.formato] || "";
-  const visibleTags = (p.tags || []).slice(0, 4);
-  const cat = CATS.find(c => c.id === p.categoria);
+  const visibleTags = (p.tags || []).slice(0, 3);
+  const overflowTags = Math.max(0, (p.tags || []).length - visibleTags.length);
   const subcat = SUBCATS.find(s => s.id === p.subcategoria);
+  const levelLabel = subcat?.name || "Sem nível";
+  const shortSummary = esc((p.quandoUsar || p.text || "").replace(/\s+/g, " ").trim()).slice(0, 140);
 
   let syncStatusHtml = "";
   if (_renderCtx.hasRemote && _renderCtx.lastSync !== "0") {
@@ -736,24 +751,24 @@ function buildCard(p) {
         ${S.bulkSelectMode ? `<input type="checkbox" class="card-select" data-action="select" ${S.selectedPromptIds.includes(p.id) ? "checked" : ""} aria-label="Selecionar prompt">` : `<span class="card-drag-handle" title="Arrastar card" draggable="true" data-action="drag-handle">⋮⋮</span>`}
         <div class="card-title">${cardTitle}</div>
       </div>
-      <div style="display:flex; gap:4px; align-items:center;">
-        ${p.ai ? `<div class="card-ai">${esc(p.ai.toUpperCase())}</div>` : ""}
+      <div style="display:flex; gap:4px; align-items:center; flex-shrink:0;">
+        ${p.ai ? `<div class="card-ai-indicator" title="IA usada"><span aria-hidden="true">🤖</span><span>${esc(p.ai.toUpperCase())}</span></div>` : `<div class="card-ai-indicator is-empty">Sem IA</div>`}
         <button class="card-pin-quick ${p.pinned ? 'is-pinned' : ''}" data-action="pin" title="Fixar prompt">${p.pinned ? '⭐' : '☆'}</button>
-        <button class="card-copy-quick" data-action="copy" title="Copiar prompt">📋</button>
       </div>
     </div>
+    ${shortSummary ? `<div class="card-summary">${shortSummary}</div>` : ""}
     <div class="card-badges">
-      <span class="badge ${statusClass}">${esc(statusLabel)}</span>
+      <span class="badge ${statusClass} card-status">${esc(statusLabel)}</span>
       ${formatoLabel ? `<span class="badge badge-formato">${esc(formatoLabel)}</span>` : ""}
-      ${subcat ? `<span class="badge badge-formato">${esc(subcat.name)}</span>` : ""}
+      <span class="badge badge-formato">${esc(levelLabel)}</span>
       ${syncStatusHtml}
     </div>
-    ${p.quandoUsar ? `<div class="card-when" style="color:var(--t3);font-size:11.5px;">Quando usar: ${esc(p.quandoUsar)}</div>` : ""}
-    ${visibleTags.length ? `<div class="card-tags" data-action="tag-filter">${visibleTags.map(t => `<span class="tag" data-tag="${esc(t)}">#${esc(t)}</span>`).join("")}${(p.tags || []).length > 4 ? `<span class="tag">+${(p.tags || []).length - 4}</span>` : ""}</div>` : ""}
+    ${visibleTags.length ? `<div class="card-tags" data-action="tag-filter">${visibleTags.map(t => `<span class="tag" data-tag="${esc(t)}">#${esc(t)}</span>`).join("")}${overflowTags ? `<span class="tag tag-overflow" title="${overflowTags} tag(s) a mais">+${overflowTags}</span>` : ""}</div>` : ""}
     <div class="card-actions">
       <button class="card-btn" data-action="edit">✏️ Editar</button>
       <button class="card-btn" data-action="dupe">🔁 Duplicar</button>
-      <button class="card-btn" data-action="archive">${p.status === "arquivado" ? "📂 Desarquivar" : "🗃️ Arquivar"}</button>
+      <button class="card-btn" data-action="copy">📋 Copiar</button>
+      <button class="card-btn" data-action="more">⋯ Mais</button>
     </div>`;
 
   if (S.promptSort === "manual" && !S.bulkSelectMode) {

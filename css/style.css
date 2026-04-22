@@ -849,7 +849,7 @@ a {
 
 .prompt-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   align-content: start;
 }
@@ -870,6 +870,12 @@ a {
   border-color: var(--state-selected-border);
   box-shadow: 0 4px 16px var(--state-active-bg);
   transform: translateY(-2px) scale(1.01);
+}
+
+.prompt-card:focus-visible {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-g), 0 4px 16px var(--blue-g);
+  transform: translateY(-2px);
 }
 
 .prompt-card.manual-sort {
@@ -988,7 +994,7 @@ a {
 }
 
 .card-pin-quick {
-  opacity: 0;
+  opacity: 1;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -1067,15 +1073,35 @@ a {
   word-break: break-word;
 }
 
-.card-ai {
-  font-size: var(--type-micro-size);
+.card-summary {
+  font-size: 12px;
+  color: var(--t2);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-ai-indicator {
+  font-size: 10px;
   font-family: var(--mono);
-  color: var(--t3);
-  background: var(--chip-ai-bg);
-  border: 1px solid var(--chip-ai-border);
-  padding: 2px 6px;
-  border-radius: var(--r1);
+  color: var(--blue);
+  background: var(--blue-g);
+  border: 1px solid var(--blue-b);
+  padding: 3px 7px;
+  border-radius: 999px;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.card-ai-indicator.is-empty {
+  color: var(--t3);
+  background: var(--bg3);
+  border-color: var(--line2);
 }
 
 .card-badges {
@@ -1125,15 +1151,9 @@ a {
   color: var(--t2);
 }
 
-.card-when {
-  font-size: 12px;
-  color: var(--t2);
-  line-height: 1.45;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.card-status {
+  font-weight: 700;
+  box-shadow: 0 0 0 1px currentColor inset;
 }
 
 .card-tags {
@@ -1222,24 +1242,41 @@ a {
   color: var(--t3);
 }
 
+.tag-overflow {
+  color: var(--blue);
+  border-color: var(--blue-b);
+  background: var(--blue-g);
+}
+
 .card-actions {
   display: flex;
   gap: 6px;
-  margin-top: 2px;
+  margin-top: auto;
+  padding-top: 4px;
 }
 
 .card-btn {
-  padding: 5px 10px;
+  padding: 5px 8px;
   border-radius: var(--r1);
-  font-size: 12px;
+  font-size: 11.5px;
   border: 1px solid var(--line2);
   color: var(--t2);
   transition: all .12s;
+  flex: 1;
+  min-height: 30px;
 }
 
 .card-btn:hover {
   background: var(--bg3);
   color: var(--t1);
+}
+
+.card-btn:focus-visible,
+.card-pin-quick:focus-visible,
+.card-copy-quick:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-color: var(--blue-b);
 }
 
 .card-btn.primary {
@@ -1763,6 +1800,10 @@ a {
 @media (max-width: 1024px) {
   .app {
     grid-template-columns: minmax(200px, 240px) 220px 1fr;
+  }
+
+  .prompt-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
