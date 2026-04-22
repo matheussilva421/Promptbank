@@ -16,3 +16,20 @@
 - Busca e filtros funcionam.
 - Editor salva/edita/exclui corretamente.
 - Export/Import continuam operacionais.
+
+## Rollout de interface (legacy → redesign)
+Use a flag global `uiVersion` em `js/config.js` para liberar visual novo por etapas, com rollback simples para `legacy`.
+
+Fases sugeridas:
+1. shell + tokens
+2. filtros + toolbar
+3. cards + KPIs
+4. polimento/responsividade/acessibilidade
+
+## Checklist de regressão manual (por fase)
+- criar/editar/excluir prompt
+- copiar/duplicar
+- importar/exportar
+- sincronização
+- busca/filtros/ordenação
+- tema claro/escuro
