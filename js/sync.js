@@ -321,7 +321,6 @@ async function runAllSyncNow() {
   }
   if (okCount > 0 && failCount === 0) {
     lsSet("bancoPrompts_lastSyncTime", nowISO());
-    window.dispatchEvent(new CustomEvent("syncStateChanged"));
     driveSyncBtn("ok", "Sincronizado ✔");
     toast("Sincronização concluída ✅");
     setTimeout(refreshSyncIdleState, 2500);
