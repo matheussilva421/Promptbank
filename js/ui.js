@@ -359,7 +359,7 @@ function renderSortBar(catTotal, filteredTotal) {
   const bar = $("#sortBar");
   const opts = [
     { id: "updated-desc", label: "🕒 Mais recentes" },
-    { id: "uses-desc", label: "🔥 Mais usados" },
+    { id: "uses-desc", label: "🔥 Usados recentemente" },
     { id: "title-asc", label: "🔤 A-Z" },
     { id: "title-desc", label: "🔡 Z-A" },
     { id: "manual", label: "✋ Manual (arrastar cards)" },
