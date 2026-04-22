@@ -58,7 +58,8 @@ function getSearchString(p) {
   return text;
 }
 
-function filteredPromptsBase() {
+function getPromptsForCurrentView(options = {}) {
+  const { ignoreStatusFilter = false, ignorePinnedFilter = false } = options;
   let ps = promptsForCat(S.cat);
   if (S.cat === "analise" && S.subcat) ps = ps.filter(p => p.subcategoria === S.subcat);
   const q = (S.search || S.sideSearch).trim().toLowerCase();
@@ -70,10 +71,25 @@ function filteredPromptsBase() {
     });
   }
   if (S.filterFormato) ps = ps.filter(p => p.formato === S.filterFormato);
-  if (S.filterStatus) ps = ps.filter(p => p.status === S.filterStatus);
+  if (!ignoreStatusFilter && S.filterStatus) ps = ps.filter(p => p.status === S.filterStatus);
+  if (!ignorePinnedFilter && S.filterPinned) ps = ps.filter(p => !!p.pinned);
   if (S.filterTags.length) ps = ps.filter(p => S.filterTags.every(ft => (p.tags || []).includes(ft)));
   if (S.filterAis.length) ps = ps.filter(p => S.filterAis.includes((p.ai || "").toLowerCase()));
   return ps;
+}
+
+function filteredPromptsBase() {
+  return getPromptsForCurrentView();
+}
+
+function getPromptKpis() {
+  const base = getPromptsForCurrentView({ ignoreStatusFilter: true, ignorePinnedFilter: true });
+  return {
+    total: base.length,
+    homologado: base.filter(p => (p.status || "teste") === "homologado").length,
+    teste: base.filter(p => (p.status || "teste") === "teste").length,
+    favoritos: base.filter(p => !!p.pinned).length
+  };
 }
 function filteredPrompts() {
   const ps = filteredPromptsBase().slice();
@@ -99,7 +115,7 @@ function filteredPrompts() {
   return sorted;
 }
 function hasActiveFilters() {
-  return S.search || S.sideSearch || S.filterFormato || S.filterStatus || S.filterTags.length || S.filterAis.length;
+  return S.search || S.sideSearch || S.filterFormato || S.filterStatus || S.filterPinned || S.filterTags.length || S.filterAis.length;
 }
 
 function clearBulkSelection() {
@@ -174,7 +190,7 @@ function renderDock() {
     d.addEventListener("click", () => {
       S.cat = cat.id; S.subcat = ""; S.sideSearch = ""; S.search = "";
       syncPromptSortForCurrentCat();
-      S.filterFormato = ""; S.filterStatus = ""; S.filterTags = []; S.filterAis = [];
+      S.filterFormato = ""; S.filterStatus = ""; S.filterPinned = false; S.filterTags = []; S.filterAis = [];
       $("#sideSearch").value = ""; $("#globalSearch").value = "";
       saveUIState();
       render();
@@ -383,11 +399,47 @@ function renderSortBar(catTotal, filteredTotal) {
   bar.appendChild(counter);
 }
 
+function renderKpiBar() {
+  const kpiBar = $("#kpiBar");
+  if (!kpiBar) return;
+
+  const kpis = getPromptKpis();
+  const items = [
+    { id: "total", label: "Total", value: kpis.total, active: !S.filterStatus && !S.filterPinned },
+    { id: "homologado", label: "Homologados", value: kpis.homologado, active: S.filterStatus === "homologado" },
+    { id: "teste", label: "Em teste", value: kpis.teste, active: S.filterStatus === "teste" },
+    { id: "favoritos", label: "Favoritos", value: kpis.favoritos, active: !!S.filterPinned }
+  ];
+
+  kpiBar.innerHTML = "";
+  items.forEach(item => {
+    const btn = document.createElement("button");
+    btn.className = "kpi-card" + (item.active ? " active" : "");
+    btn.innerHTML = `<span class="kpi-label">${esc(item.label)}</span><span class="kpi-value">${item.value}</span>`;
+    btn.addEventListener("click", () => {
+      if (item.id === "total") {
+        S.filterStatus = "";
+        S.filterPinned = false;
+      } else if (item.id === "favoritos") {
+        S.filterStatus = "";
+        S.filterPinned = !S.filterPinned;
+      } else {
+        S.filterPinned = false;
+        S.filterStatus = S.filterStatus === item.id ? "" : item.id;
+      }
+      renderSidePanel();
+      renderMain();
+    });
+    kpiBar.appendChild(btn);
+  });
+}
+
 function renderMain() {
   syncPromptSortForCurrentCat();
   const _catTotal = promptsForCat(S.cat).length;
   const _filteredTotal = filteredPromptsBase().length;
   renderSortBar(_catTotal, _filteredTotal);
+  renderKpiBar();
   // Active filter bar
   const bar = $("#activeFilterBar"); bar.innerHTML = "";
   const addChip = (label, onRemove) => {
@@ -399,6 +451,7 @@ function renderMain() {
   if (S.search) addChip(`"${S.search}"`, () => { S.search = ""; $("#globalSearch").value = ""; renderMain(); });
   if (S.filterFormato) addChip(FORMATO_LABELS[S.filterFormato] || S.filterFormato, () => { S.filterFormato = ""; renderSidePanel(); renderMain(); });
   if (S.filterStatus) addChip(STATUS_LABELS[S.filterStatus] || S.filterStatus, () => { S.filterStatus = ""; renderSidePanel(); renderMain(); });
+  if (S.filterPinned) addChip("⭐ Favoritos", () => { S.filterPinned = false; renderMain(); });
   S.filterTags.forEach(t => addChip("#" + t, () => { S.filterTags = S.filterTags.filter(ft => ft !== t); renderSidePanel(); renderMain(); }));
   S.filterAis.forEach(ai => addChip("IA:" + ai.toUpperCase(), () => { S.filterAis = S.filterAis.filter(a => a !== ai); renderSidePanel(); renderMain(); }));
 
@@ -529,7 +582,7 @@ function renderMain() {
     return;
   }
 
-  if (S.cat === "analise" && !S.subcat && S.promptSort !== "manual" && !S.search && !S.sideSearch && S.filterTags.length === 0 && !S.filterFormato && !S.filterStatus && S.filterAis.length === 0) {
+  if (S.cat === "analise" && !S.subcat && S.promptSort !== "manual" && !S.search && !S.sideSearch && S.filterTags.length === 0 && !S.filterFormato && !S.filterStatus && !S.filterPinned && S.filterAis.length === 0) {
     const grouped = {};
     ps.forEach(p => {
       const sc = p.subcategoria || "outros";
@@ -1226,7 +1279,7 @@ document.addEventListener("click", e => {
   }
 });
 $("#btnClearFilters").addEventListener("click", () => {
-  S.search = ""; S.sideSearch = ""; S.filterFormato = ""; S.filterStatus = ""; S.filterTags = []; S.filterAis = [];
+  S.search = ""; S.sideSearch = ""; S.filterFormato = ""; S.filterStatus = ""; S.filterPinned = false; S.filterTags = []; S.filterAis = [];
   $("#globalSearch").value = ""; const side = $("#sideSearch"); if (side) side.value = "";
   renderSidePanel(); renderMain();
 });

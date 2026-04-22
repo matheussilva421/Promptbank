@@ -4,6 +4,7 @@ let S = {
   subcat: "",         // for analise
   filterFormato: "",
   filterStatus: "",
+  filterPinned: false,
   filterTags: [],
   filterAis: [],
   search: "",
