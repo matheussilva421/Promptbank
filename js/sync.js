@@ -237,7 +237,6 @@ function cfSyncDebounced() {
     try {
       await cfSyncNow();
       lsSet("bancoPrompts_lastSyncTime", nowISO());
-      window.dispatchEvent(new CustomEvent("syncStateChanged"));
       driveSyncBtn("ok", "Salvo ✔");
       setTimeout(refreshSyncIdleState, 2500);
     } catch (e) {
