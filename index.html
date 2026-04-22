@@ -132,10 +132,22 @@
 
     <!-- ══ MAIN CONTENT ══ -->
     <main class="main">
-      <header class="main-header">
-        <div class="main-actions-head">
-          <div class="bulk-actions-bar" id="bulkActionsBar"></div>
-          <div class="sort-bar" id="sortBar"></div>
+      <div class="main-header">
+        <div class="main-top-controls" id="mainTopControls">
+          <div class="main-top-controls-left">
+            <button class="btn ghost sm" id="btnImportTop">⬆️ Importar</button>
+            <button class="btn ghost sm" id="btnExportTop">⬇️ Exportar</button>
+            <button class="btn ghost sm" id="btnThemeTop">🌗 Tema</button>
+          </div>
+          <div class="main-top-controls-right">
+            <button class="sync-inline" id="syncInlineStatus" type="button" aria-label="Abrir status de sincronização">
+              <span class="sync-inline-status-text" role="status" aria-live="polite">
+                <span class="sync-inline-dot" id="syncInlineDot" data-state="off"></span>
+                <span id="syncInlineText">Sync desativado</span>
+                <span class="sync-inline-time" id="syncInlineTime">—</span>
+              </span>
+            </button>
+          </div>
         </div>
         <div class="search-row">
           <div class="search-input-wrap">

@@ -91,6 +91,10 @@ function filteredPrompts() {
 
   if (S.promptSort === "title-asc") {
     sorted = ps.sort((a, b) => (a.title || "").localeCompare((b.title || ""), "pt-BR"));
+  } else if (S.promptSort === "title-desc") {
+    sorted = ps.sort((a, b) => (b.title || "").localeCompare((a.title || ""), "pt-BR"));
+  } else if (S.promptSort === "uses-desc") {
+    sorted = ps.sort((a, b) => new Date(b.lastCopiedAt || 0) - new Date(a.lastCopiedAt || 0));
   } else if (S.promptSort === "manual") {
     const manualIds = getManualIdsForCurrent();
     const byId = new Map(ps.map(p => [p.id, p]));
@@ -433,18 +437,35 @@ function renderSidePanel() {
 function renderSortBar(catTotal, filteredTotal) {
   const bar = $("#sortBar");
   const opts = [
-    { id: "updated-desc", label: "🕒 Última edição" },
-    { id: "title-asc", label: "🔤 Título" },
+    { id: "updated-desc", label: "🕒 Mais recentes" },
+    { id: "uses-desc", label: "🔥 Usados recentemente" },
+    { id: "title-asc", label: "🔤 A-Z" },
+    { id: "title-desc", label: "🔡 Z-A" },
     { id: "manual", label: "✋ Manual (arrastar cards)" },
   ];
-  bar.innerHTML = '<span class="sort-label">Ordenar por</span>';
+
+  bar.innerHTML = "";
+
+  const label = document.createElement("span");
+  label.className = "sort-label";
+  label.textContent = "Ordenar por";
+  bar.appendChild(label);
+
+  const select = document.createElement("select");
+  select.className = "sort-select";
   opts.forEach(o => {
-    const b = document.createElement("button");
-    b.className = "sort-chip" + (S.promptSort === o.id ? " active" : "");
-    b.textContent = o.label;
-    b.addEventListener("click", () => { setPromptSortForCurrentCat(o.id); saveUIState(); renderMain(); });
-    bar.appendChild(b);
+    const option = document.createElement("option");
+    option.value = o.id;
+    option.textContent = o.label;
+    select.appendChild(option);
   });
+  select.value = S.promptSort;
+  select.addEventListener("change", e => {
+    setPromptSortForCurrentCat(e.target.value);
+    saveUIState();
+    renderMain();
+  });
+  bar.appendChild(select);
 
   const toggleBulkBtn = document.createElement("button");
   toggleBulkBtn.className = "sort-chip" + (S.bulkSelectMode ? " active" : "");
@@ -1458,8 +1479,59 @@ function refreshWordImportPreview() {
   $("#wordImportPreview").textContent = `${parsed.length} bloco(s) detectado(s) • ${withEixo} com eixo detectado automaticamente.`;
 }
 
-// ── Theme ──
-$("#btnTheme").addEventListener("click", () => { const n = getTheme() === "light" ? "dark" : "light"; setTheme(n); applyColor(currentColorIndex); toast(n === "light" ? "Tema claro ☀️" : "Tema escuro 🌙"); });
+// ── Theme + Top controls ──
+function toggleThemeWithToast() {
+  const n = getTheme() === "light" ? "dark" : "light";
+  setTheme(n);
+  applyColor(currentColorIndex);
+  toast(n === "light" ? "Tema claro ☀️" : "Tema escuro 🌙");
+}
+
+function getRelativeTimeFromNow(iso) {
+  if (!iso || iso === "0") return "—";
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return "—";
+  const diff = Date.now() - then;
+  if (diff < 45 * 1000) return "agora";
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 60) return `há ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `há ${hours} h`;
+  const days = Math.floor(hours / 24);
+  return `há ${days} d`;
+}
+
+function refreshSyncInlineStatus() {
+  const dot = $("#syncInlineDot");
+  const text = $("#syncInlineText");
+  const time = $("#syncInlineTime");
+  if (!dot || !text || !time) return;
+
+  const state = document.getElementById("btnDriveSync")?.dataset?.state || "off";
+  dot.dataset.state = state;
+
+  const stateMap = {
+    off: "Sync desativado",
+    idle: "Pronto para sincronizar",
+    syncing: "Sincronizando…",
+    ok: "Sincronizado",
+    error: "Erro na sincronização"
+  };
+  text.textContent = stateMap[state] || "Sincronização";
+
+  const lastSync = localStorage.getItem("bancoPrompts_lastSyncTime") || "0";
+  time.textContent = getRelativeTimeFromNow(lastSync);
+  time.title = lastSync !== "0" ? `Última sync: ${fmt(lastSync)}` : "Sem sincronização registrada";
+}
+
+$("#btnTheme").addEventListener("click", toggleThemeWithToast);
+$("#btnThemeTop")?.addEventListener("click", toggleThemeWithToast);
+$("#btnImportTop")?.addEventListener("click", () => $("#btnImport")?.click());
+$("#btnExportTop")?.addEventListener("click", () => $("#btnExport")?.click());
+$("#syncInlineStatus")?.addEventListener("click", () => document.getElementById("btnDriveSync")?.click());
+window.addEventListener("syncStateChanged", refreshSyncInlineStatus);
+setInterval(refreshSyncInlineStatus, 60 * 1000);
+refreshSyncInlineStatus();
 
 // ── Settings / Data actions ──
 function dl(name, content, type = "application/json") {
