@@ -124,6 +124,20 @@
     <!-- ══ MAIN ══ -->
     <main class="main">
       <div class="main-header">
+        <div class="main-top-controls" id="mainTopControls">
+          <div class="main-top-controls-left">
+            <button class="btn ghost sm" id="btnImportTop">⬆️ Importar</button>
+            <button class="btn ghost sm" id="btnExportTop">⬇️ Exportar</button>
+            <button class="btn ghost sm" id="btnThemeTop">🌗 Tema</button>
+          </div>
+          <div class="main-top-controls-right">
+            <div class="sync-inline" id="syncInlineStatus" role="status" aria-live="polite">
+              <span class="sync-inline-dot" id="syncInlineDot" data-state="off"></span>
+              <span id="syncInlineText">Sync desativado</span>
+              <span class="sync-inline-time" id="syncInlineTime">—</span>
+            </div>
+          </div>
+        </div>
         <div class="search-row">
           <div class="search-input-wrap">
             <span style="color:var(--t3);" aria-hidden="true">🔍</span>

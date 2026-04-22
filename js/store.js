@@ -59,7 +59,7 @@ function loadSubcatOrder() {
 }
 
 function isValidPromptSort(sort) {
-  return ["updated-desc", "title-asc", "manual"].includes(sort);
+  return ["updated-desc", "uses-desc", "title-asc", "title-desc", "manual"].includes(sort);
 }
 
 function currentPromptSortKey() {

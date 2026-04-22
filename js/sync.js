@@ -67,6 +67,7 @@ function driveSyncBtn(state, tip) {
   else if (state === "ok") bar.textContent = "✔";
   else if (state === "error") bar.textContent = "✗";
   else bar.textContent = "";
+  window.dispatchEvent(new CustomEvent("syncStateChanged", { detail: { state, tip } }));
 }
 function refreshSyncIdleState() {
   driveSyncBtn(hasAnyRemoteConfigured() ? "idle" : "off", hasAnyRemoteConfigured() ? "Sincronizar agora" : "Configurar / Sincronizar");
@@ -121,6 +122,7 @@ function driveSyncDebounced() {
         await driveSyncNow();
       }
       lsSet("bancoPrompts_lastSyncTime", nowISO());
+      window.dispatchEvent(new CustomEvent("syncStateChanged"));
       driveSyncBtn("ok", "Salvo ✔");
       setTimeout(refreshSyncIdleState, 2500);
     } catch (e) {
@@ -236,6 +238,7 @@ function cfSyncDebounced() {
     try {
       await cfSyncNow();
       lsSet("bancoPrompts_lastSyncTime", nowISO());
+      window.dispatchEvent(new CustomEvent("syncStateChanged"));
       driveSyncBtn("ok", "Salvo ✔");
       setTimeout(refreshSyncIdleState, 2500);
     } catch (e) {
@@ -305,6 +308,7 @@ function isGoogleInteractionRequiredError(err) {
 
 async function runAllSyncNow() {
   if (!hasAnyRemoteConfigured()) { openDriveSetupModal(); return; }
+  toast("Sincronizando dados… ⏳");
   driveSyncBtn("syncing", "Sincronizando Google/Cloudflare…");
   let okCount = 0, failCount = 0;
   if (hasGoogleConfigured()) {
@@ -316,12 +320,17 @@ async function runAllSyncNow() {
     catch (e) { failCount++; console.error("[Sync][Cloudflare]", e); }
   }
   if (okCount > 0 && failCount === 0) {
+    lsSet("bancoPrompts_lastSyncTime", nowISO());
+    window.dispatchEvent(new CustomEvent("syncStateChanged"));
     driveSyncBtn("ok", "Sincronizado ✔");
+    toast("Sincronização concluída ✅");
     setTimeout(refreshSyncIdleState, 2500);
   } else if (okCount > 0) {
     driveSyncBtn("error", "Sync parcial (ver console)");
+    toast("Sincronização parcial ⚠️");
   } else {
     driveSyncBtn("error", "Erro — clique para tentar");
+    toast("Falha ao sincronizar ❌");
   }
 }
 
