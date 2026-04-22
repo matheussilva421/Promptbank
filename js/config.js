@@ -7,6 +7,50 @@ const LS_CUSTOM_SUBCATS = "bancoPrompts_customSubcats";
 const LS_CUSTOM_FORMATOS = "bancoPrompts_customFormatos";
 const LS_CUSTOM_STATUS = "bancoPrompts_customStatus";
 const LS_CUSTOM_AIS = "bancoPrompts_customAis";
+const LS_UI_VERSION = "bancoPrompts_uiVersion";
+
+// ── UI rollout flag (legacy → redesign) ──
+const UI_VERSIONS = {
+  legacy: "legacy",
+  redesign: "redesign",
+};
+
+const DEFAULT_UI_VERSION = UI_VERSIONS.legacy;
+
+function readUIVersion() {
+  try {
+    const saved = localStorage.getItem(LS_UI_VERSION);
+    return Object.values(UI_VERSIONS).includes(saved) ? saved : DEFAULT_UI_VERSION;
+  } catch (e) {
+    return DEFAULT_UI_VERSION;
+  }
+}
+
+let uiVersion = readUIVersion(); // 'legacy' | 'redesign'
+
+function setUIVersion(nextVersion) {
+  if (!Object.values(UI_VERSIONS).includes(nextVersion)) return;
+  uiVersion = nextVersion;
+  try { localStorage.setItem(LS_UI_VERSION, nextVersion); } catch (e) { }
+}
+
+// Plano de rollout controlado por fases do redesign
+const UI_ROLLOUT_PHASES = [
+  "1. shell + tokens",
+  "2. filtros + toolbar",
+  "3. cards + KPIs",
+  "4. polimento/responsividade/acessibilidade",
+];
+
+// Checklist de regressão manual para cada fase
+const MANUAL_REGRESSION_CHECKLIST = [
+  "criar/editar/excluir prompt",
+  "copiar/duplicar",
+  "importar/exportar",
+  "sincronização",
+  "busca/filtros/ordenação",
+  "tema claro/escuro",
+];
 
 // ── Default values (fallback) ──
 const DEFAULT_CATS = [
