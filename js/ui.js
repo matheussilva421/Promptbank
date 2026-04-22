@@ -169,6 +169,7 @@ function renderDock() {
     d.className = "dock-item" + (S.cat === cat.id ? " active" : "");
     d.draggable = true;
     d.dataset.catId = cat.id;
+    d.dataset.label = cat.name;
     const count = promptsForCat(cat.id).length;
     d.innerHTML = `${esc(cat.icon)}<div class="tooltip">${esc(cat.name)} (${count})</div>`;
     d.addEventListener("click", () => {

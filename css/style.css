@@ -25,7 +25,7 @@
   --mono: 'Geist Mono', ui-monospace, monospace;
   --sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
   --display: 'Syne', 'DM Sans', sans-serif;
-  --dock-w: 64px;
+  --nav-w: clamp(220px, 19vw, 280px);
   --panel-w: 260px;
   --dock-bottom-h: 60px;
   --sh1: 0 2px 8px rgba(0, 0, 0, .4);
@@ -148,7 +148,7 @@ a {
 /* ══════════ APP SHELL ══════════ */
 .app {
   display: grid;
-  grid-template-columns: var(--dock-w) var(--panel-w) 1fr;
+  grid-template-columns: var(--nav-w) minmax(240px, 300px) 1fr;
   height: 100vh;
 }
 
@@ -158,10 +158,16 @@ a {
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 14px 0 12px;
-  gap: 4px;
+  align-items: stretch;
+  padding: 16px 12px 12px;
+  gap: 10px;
   z-index: 10;
+}
+
+.dock-logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .dock-logo {
@@ -173,6 +179,38 @@ a {
   flex-shrink: 0;
   position: relative;
   transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.dock-brand {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.dock-brand strong {
+  font-family: var(--display);
+  font-size: 15px;
+}
+
+.dock-brand span {
+  color: var(--t3);
+  font-size: 11px;
+}
+
+.dock-nav-head {
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 4px;
+  padding: 0 2px;
+}
+
+.dock-cats-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .dock-logo:hover {
@@ -199,7 +237,7 @@ a {
 }
 
 .dock-sep {
-  width: 28px;
+  width: 100%;
   height: 1px;
   background: var(--line);
   margin: 6px 0;
@@ -207,14 +245,16 @@ a {
 }
 
 .dock-item {
-  width: 42px;
-  height: 42px;
+  width: 100%;
+  min-height: 42px;
   border-radius: 12px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
   cursor: pointer;
   position: relative;
-  font-size: 20px;
+  font-size: 16px;
   transition: background .15s, transform .15s;
   flex-shrink: 0;
   border: 1px solid transparent;
@@ -234,9 +274,9 @@ a {
 
 .dock-item .tooltip {
   position: absolute;
-  left: calc(100% + 10px);
-  top: 50%;
-  transform: translateY(-50%);
+  left: 50%;
+  top: calc(100% + 6px);
+  transform: translateX(-50%);
   background: var(--bg4);
   border: 1px solid var(--line2);
   color: var(--t1);
@@ -255,6 +295,13 @@ a {
   opacity: 1;
 }
 
+.dock-item::after {
+  content: attr(data-label);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t2);
+}
+
 .dock-label {
   display: none;
   font-size: 10px;
@@ -267,13 +314,19 @@ a {
 .dock-bottom {
   margin-top: auto;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: stretch;
+  flex-direction: row;
   gap: 4px;
 }
 
+.dock-cta .btn {
+  width: 100%;
+  justify-content: center;
+}
+
 .dock-icon-btn {
-  width: 34px;
+  width: calc(50% - 2px);
   height: 34px;
   border-radius: 9px;
   display: grid;
@@ -448,9 +501,18 @@ a {
 .panel-footer {
   padding: 10px 12px;
   border-top: 1px solid var(--line);
-  display: flex;
+  display: none;
   gap: 8px;
   flex-shrink: 0;
+}
+
+.panel-filters-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--t3);
+  padding: 8px 14px 0;
+  text-transform: uppercase;
+  letter-spacing: .06em;
 }
 
 /* Subcategory nav */
@@ -556,6 +618,11 @@ a {
 .main-header {
   padding: 14px 20px 0;
   flex-shrink: 0;
+}
+
+.main-actions-head {
+  display: flex;
+  flex-direction: column;
 }
 
 .search-row {
@@ -729,6 +796,34 @@ a {
   padding: 8px 0 4px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.main-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.metric-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+  background: var(--bg1);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-label {
+  font-size: 10px;
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.metric-value {
+  font-size: 12px;
+  color: var(--t1);
 }
 
 .sort-label {
@@ -1504,7 +1599,7 @@ a {
 
 @media (max-width: 1024px) {
   .app {
-    grid-template-columns: var(--dock-w) 220px 1fr;
+    grid-template-columns: minmax(200px, 240px) 220px 1fr;
   }
 }
 
