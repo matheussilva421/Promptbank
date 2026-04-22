@@ -131,11 +131,13 @@
             <button class="btn ghost sm" id="btnThemeTop">🌗 Tema</button>
           </div>
           <div class="main-top-controls-right">
-            <div class="sync-inline" id="syncInlineStatus" role="status" aria-live="polite">
-              <span class="sync-inline-dot" id="syncInlineDot" data-state="off"></span>
-              <span id="syncInlineText">Sync desativado</span>
-              <span class="sync-inline-time" id="syncInlineTime">—</span>
-            </div>
+            <button class="sync-inline" id="syncInlineStatus" type="button" aria-label="Abrir status de sincronização">
+              <span class="sync-inline-status-text" role="status" aria-live="polite">
+                <span class="sync-inline-dot" id="syncInlineDot" data-state="off"></span>
+                <span id="syncInlineText">Sync desativado</span>
+                <span class="sync-inline-time" id="syncInlineTime">—</span>
+              </span>
+            </button>
           </div>
         </div>
         <div class="search-row">
