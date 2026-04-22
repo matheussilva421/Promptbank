@@ -58,8 +58,7 @@ function getSearchString(p) {
   return text;
 }
 
-function getPromptsForCurrentView(options = {}) {
-  const { ignoreStatusFilter = false, ignorePinnedFilter = false } = options;
+function filteredPromptsBase() {
   let ps = promptsForCat(S.cat);
   if (S.cat === "analise" && S.subcat) ps = ps.filter(p => p.subcategoria === S.subcat);
   const q = (S.search || S.sideSearch).trim().toLowerCase();
@@ -71,25 +70,10 @@ function getPromptsForCurrentView(options = {}) {
     });
   }
   if (S.filterFormato) ps = ps.filter(p => p.formato === S.filterFormato);
-  if (!ignoreStatusFilter && S.filterStatus) ps = ps.filter(p => p.status === S.filterStatus);
-  if (!ignorePinnedFilter && S.filterPinned) ps = ps.filter(p => !!p.pinned);
+  if (S.filterStatus) ps = ps.filter(p => p.status === S.filterStatus);
   if (S.filterTags.length) ps = ps.filter(p => S.filterTags.every(ft => (p.tags || []).includes(ft)));
   if (S.filterAis.length) ps = ps.filter(p => S.filterAis.includes((p.ai || "").toLowerCase()));
   return ps;
-}
-
-function filteredPromptsBase() {
-  return getPromptsForCurrentView();
-}
-
-function getPromptKpis() {
-  const base = getPromptsForCurrentView({ ignoreStatusFilter: true, ignorePinnedFilter: true });
-  return {
-    total: base.length,
-    homologado: base.filter(p => (p.status || "teste") === "homologado").length,
-    teste: base.filter(p => (p.status || "teste") === "teste").length,
-    favoritos: base.filter(p => !!p.pinned).length
-  };
 }
 function filteredPrompts() {
   const ps = filteredPromptsBase().slice();
@@ -97,10 +81,6 @@ function filteredPrompts() {
 
   if (S.promptSort === "title-asc") {
     sorted = ps.sort((a, b) => (a.title || "").localeCompare((b.title || ""), "pt-BR"));
-  } else if (S.promptSort === "title-desc") {
-    sorted = ps.sort((a, b) => (b.title || "").localeCompare((a.title || ""), "pt-BR"));
-  } else if (S.promptSort === "uses-desc") {
-    sorted = ps.sort((a, b) => new Date(b.lastCopiedAt || 0) - new Date(a.lastCopiedAt || 0));
   } else if (S.promptSort === "manual") {
     const manualIds = getManualIdsForCurrent();
     const byId = new Map(ps.map(p => [p.id, p]));
@@ -119,7 +99,7 @@ function filteredPrompts() {
   return sorted;
 }
 function hasActiveFilters() {
-  return S.search || S.sideSearch || S.filterFormato || S.filterStatus || S.filterPinned || S.filterTags.length || S.filterAis.length;
+  return S.search || S.sideSearch || S.filterFormato || S.filterStatus || S.filterTags.length || S.filterAis.length;
 }
 
 function clearBulkSelection() {
@@ -189,15 +169,13 @@ function renderDock() {
     d.className = "dock-item" + (S.cat === cat.id ? " active" : "");
     d.draggable = true;
     d.dataset.catId = cat.id;
-    d.dataset.label = cat.name;
     const count = promptsForCat(cat.id).length;
     d.innerHTML = `${esc(cat.icon)}<div class="tooltip">${esc(cat.name)} (${count})</div>`;
     d.addEventListener("click", () => {
       S.cat = cat.id; S.subcat = ""; S.sideSearch = ""; S.search = "";
       syncPromptSortForCurrentCat();
-      S.filterFormato = ""; S.filterStatus = ""; S.filterPinned = false; S.filterTags = []; S.filterAis = [];
+      S.filterFormato = ""; S.filterStatus = ""; S.filterTags = []; S.filterAis = [];
       $("#sideSearch").value = ""; $("#globalSearch").value = "";
-      updateClearBtnVisibility();
       saveUIState();
       render();
     });
@@ -240,21 +218,6 @@ function renderSidePanel() {
 
   const body = $("#panelBody");
   body.innerHTML = "";
-  const footer = $("#panelFooter");
-  let panelClearBtn = $("#btnPanelClearFilters");
-  if (!panelClearBtn && footer) {
-    panelClearBtn = document.createElement("button");
-    panelClearBtn.id = "btnPanelClearFilters";
-    panelClearBtn.className = "btn ghost";
-    panelClearBtn.textContent = "Limpar filtros";
-    panelClearBtn.addEventListener("click", () => {
-      clearAllFiltersAndSearch();
-      renderSidePanel();
-      renderMain();
-    });
-    footer.insertBefore(panelClearBtn, $("#btnNewPrompt"));
-  }
-  if (panelClearBtn) panelClearBtn.style.display = hasActiveFilters() ? "" : "none";
 
   // Subcategory nav for analise
   if (S.cat === "analise") {
@@ -308,14 +271,7 @@ function renderSidePanel() {
   }
 
   // Formato filter
-  const sideQ = (S.sideSearch || "").trim().toLowerCase();
-  const formatosBase = applyPromptFilters(catPrompts, { skipFacet: "formato" });
-  const formatosCount = {};
-  formatosBase.forEach(p => {
-    if (!p.formato) return;
-    formatosCount[p.formato] = (formatosCount[p.formato] || 0) + 1;
-  });
-  const formatosUsed = Object.keys(formatosCount).filter(f => !sideQ || (FORMATO_LABELS[f] || f).toLowerCase().includes(sideQ));
+  const formatosUsed = [...new Set(catPrompts.map(p => p.formato).filter(Boolean))];
   if (formatosUsed.length) {
     const fl = document.createElement("div"); fl.className = "filter-section";
     fl.innerHTML = `<div class="filter-label">Formato</div><div class="filter-chips" id="formatoChips"></div>`;
@@ -323,25 +279,15 @@ function renderSidePanel() {
     const chips = fl.querySelector("#formatoChips");
     formatosUsed.forEach(f => {
       const c = document.createElement("span");
-      c.className = "chip" + (S.filterFormato.includes(f) ? " active" : "");
-      c.textContent = `${FORMATO_LABELS[f] || f} ${formatosCount[f] || 0}`;
-      c.addEventListener("click", () => {
-        S.filterFormato = S.filterFormato.includes(f) ? S.filterFormato.filter(x => x !== f) : [...S.filterFormato, f];
-        saveUIState();
-        renderSidePanel(); renderMain();
-      });
+      c.className = "chip" + (S.filterFormato === f ? " active" : "");
+      c.textContent = FORMATO_LABELS[f] || f;
+      c.addEventListener("click", () => { S.filterFormato = S.filterFormato === f ? "" : f; renderSidePanel(); renderMain(); });
       chips.appendChild(c);
     });
   }
 
   // Status filter
-  const statusBase = applyPromptFilters(catPrompts, { skipFacet: "status" });
-  const statusCount = {};
-  statusBase.forEach(p => {
-    const st = p.status || "teste";
-    statusCount[st] = (statusCount[st] || 0) + 1;
-  });
-  const statusUsed = Object.keys(statusCount).filter(st => !sideQ || (STATUS_LABELS[st] || st).toLowerCase().includes(sideQ));
+  const statusUsed = [...new Set(catPrompts.map(p => p.status || "teste").filter(Boolean))];
   if (statusUsed.length) {
     const fl2 = document.createElement("div"); fl2.className = "filter-section";
     fl2.innerHTML = `<div class="filter-label">Status</div><div class="filter-chips" id="statusChips"></div>`;
@@ -349,42 +295,27 @@ function renderSidePanel() {
     const chips2 = fl2.querySelector("#statusChips");
     statusUsed.forEach(st => {
       const c = document.createElement("span");
-      c.className = "chip" + (S.filterStatus.includes(st) ? " active" : "");
-      c.textContent = `${STATUS_LABELS[st] || st} ${statusCount[st] || 0}`;
-      c.addEventListener("click", () => {
-        S.filterStatus = S.filterStatus.includes(st) ? S.filterStatus.filter(x => x !== st) : [...S.filterStatus, st];
-        saveUIState();
-        renderSidePanel(); renderMain();
-      });
+      c.className = "chip" + (S.filterStatus === st ? " active" : "");
+      c.textContent = STATUS_LABELS[st] || st;
+      c.addEventListener("click", () => { S.filterStatus = S.filterStatus === st ? "" : st; renderSidePanel(); renderMain(); });
       chips2.appendChild(c);
     });
   }
 
   // AI filter
-  const aisBase = applyPromptFilters(catPrompts, { skipFacet: "ais" });
-  const aisCount = {};
-  aisBase.forEach(p => {
-    const ai = (p.ai || "").toLowerCase();
-    if (!ai) return;
-    aisCount[ai] = (aisCount[ai] || 0) + 1;
-  });
-  const aisUsed = Object.keys(aisCount).filter(ai => {
-    const aiLabel = (AI_LIST.find(a => a.id === ai)?.label) || (ai.charAt(0).toUpperCase() + ai.slice(1));
-    return !sideQ || aiLabel.toLowerCase().includes(sideQ);
-  });
-  if (aisUsed.length) {
+  const aisUsed = [...new Set(catPrompts.map(p => p.ai).filter(Boolean))];
+  if (aisUsed.length > 1) {
     const fl3 = document.createElement("div"); fl3.className = "filter-section";
     fl3.innerHTML = `<div class="filter-label">IA</div><div class="filter-chips" id="aiChips"></div>`;
     body.appendChild(fl3);
     const chips3 = fl3.querySelector("#aiChips");
-    aisUsed.forEach(aiKey => {
+    aisUsed.forEach(ai => {
       const c = document.createElement("span");
+      const aiKey = ai.toLowerCase();
       c.className = "chip" + (S.filterAis.includes(aiKey) ? " active" : "");
-      const aiLabel = (AI_LIST.find(a => a.id === aiKey)?.label) || (aiKey.charAt(0).toUpperCase() + aiKey.slice(1));
-      c.textContent = `${aiLabel} ${aisCount[aiKey] || 0}`;
+      c.textContent = (AI_LIST.find(a => a.id === aiKey)?.label) || (ai.charAt(0).toUpperCase() + ai.slice(1));
       c.addEventListener("click", () => {
         S.filterAis = S.filterAis.includes(aiKey) ? S.filterAis.filter(t => t !== aiKey) : [...S.filterAis, aiKey];
-        saveUIState();
         renderSidePanel(); renderMain();
       });
       chips3.appendChild(c);
@@ -392,14 +323,9 @@ function renderSidePanel() {
   }
 
   // Popular tags
-  const tagsBase = applyPromptFilters(catPrompts, { skipFacet: "tags" });
   const tagCounts = {};
-  tagsBase.forEach(p => (p.tags || []).forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
-  const topTags = Object.entries(tagCounts)
-    .filter(([tag]) => !sideQ || tag.toLowerCase().includes(sideQ))
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 12)
-    .map(([t]) => t);
+  catPrompts.forEach(p => (p.tags || []).forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
+  const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([t]) => t);
   if (topTags.length) {
     const fl4 = document.createElement("div"); fl4.className = "filter-section";
     fl4.innerHTML = `<div class="filter-label">Tags</div><div class="filter-chips" id="tagChips"></div>`;
@@ -408,10 +334,9 @@ function renderSidePanel() {
     topTags.forEach(tag => {
       const c = document.createElement("span");
       c.className = "chip" + (S.filterTags.includes(tag) ? " active" : "");
-      c.textContent = `#${tag} ${tagCounts[tag] || 0}`;
+      c.textContent = "#" + tag;
       c.addEventListener("click", () => {
         S.filterTags = S.filterTags.includes(tag) ? S.filterTags.filter(t => t !== tag) : [...S.filterTags, tag];
-        saveUIState();
         renderSidePanel(); renderMain();
       });
       chips4.appendChild(c);
@@ -429,35 +354,18 @@ function renderSidePanel() {
 function renderSortBar(catTotal, filteredTotal) {
   const bar = $("#sortBar");
   const opts = [
-    { id: "updated-desc", label: "🕒 Mais recentes" },
-    { id: "uses-desc", label: "🔥 Usados recentemente" },
-    { id: "title-asc", label: "🔤 A-Z" },
-    { id: "title-desc", label: "🔡 Z-A" },
+    { id: "updated-desc", label: "🕒 Última edição" },
+    { id: "title-asc", label: "🔤 Título" },
     { id: "manual", label: "✋ Manual (arrastar cards)" },
   ];
-
-  bar.innerHTML = "";
-
-  const label = document.createElement("span");
-  label.className = "sort-label";
-  label.textContent = "Ordenar por";
-  bar.appendChild(label);
-
-  const select = document.createElement("select");
-  select.className = "sort-select";
+  bar.innerHTML = '<span class="sort-label">Ordenar por</span>';
   opts.forEach(o => {
-    const option = document.createElement("option");
-    option.value = o.id;
-    option.textContent = o.label;
-    select.appendChild(option);
+    const b = document.createElement("button");
+    b.className = "sort-chip" + (S.promptSort === o.id ? " active" : "");
+    b.textContent = o.label;
+    b.addEventListener("click", () => { setPromptSortForCurrentCat(o.id); saveUIState(); renderMain(); });
+    bar.appendChild(b);
   });
-  select.value = S.promptSort;
-  select.addEventListener("change", e => {
-    setPromptSortForCurrentCat(e.target.value);
-    saveUIState();
-    renderMain();
-  });
-  bar.appendChild(select);
 
   const toggleBulkBtn = document.createElement("button");
   toggleBulkBtn.className = "sort-chip" + (S.bulkSelectMode ? " active" : "");
@@ -475,47 +383,11 @@ function renderSortBar(catTotal, filteredTotal) {
   bar.appendChild(counter);
 }
 
-function renderKpiBar() {
-  const kpiBar = $("#kpiBar");
-  if (!kpiBar) return;
-
-  const kpis = getPromptKpis();
-  const items = [
-    { id: "total", label: "Total", value: kpis.total, active: !S.filterStatus && !S.filterPinned },
-    { id: "homologado", label: "Homologados", value: kpis.homologado, active: S.filterStatus === "homologado" },
-    { id: "teste", label: "Em teste", value: kpis.teste, active: S.filterStatus === "teste" },
-    { id: "favoritos", label: "Favoritos", value: kpis.favoritos, active: !!S.filterPinned }
-  ];
-
-  kpiBar.innerHTML = "";
-  items.forEach(item => {
-    const btn = document.createElement("button");
-    btn.className = "kpi-card" + (item.active ? " active" : "");
-    btn.innerHTML = `<span class="kpi-label">${esc(item.label)}</span><span class="kpi-value">${item.value}</span>`;
-    btn.addEventListener("click", () => {
-      if (item.id === "total") {
-        S.filterStatus = "";
-        S.filterPinned = false;
-      } else if (item.id === "favoritos") {
-        S.filterStatus = "";
-        S.filterPinned = !S.filterPinned;
-      } else {
-        S.filterPinned = false;
-        S.filterStatus = S.filterStatus === item.id ? "" : item.id;
-      }
-      renderSidePanel();
-      renderMain();
-    });
-    kpiBar.appendChild(btn);
-  });
-}
-
 function renderMain() {
   syncPromptSortForCurrentCat();
   const _catTotal = promptsForCat(S.cat).length;
   const _filteredTotal = filteredPromptsBase().length;
   renderSortBar(_catTotal, _filteredTotal);
-  renderKpiBar();
   // Active filter bar
   const bar = $("#activeFilterBar"); bar.innerHTML = "";
   const addChip = (label, onRemove) => {
@@ -527,7 +399,6 @@ function renderMain() {
   if (S.search) addChip(`"${S.search}"`, () => { S.search = ""; $("#globalSearch").value = ""; renderMain(); });
   if (S.filterFormato) addChip(FORMATO_LABELS[S.filterFormato] || S.filterFormato, () => { S.filterFormato = ""; renderSidePanel(); renderMain(); });
   if (S.filterStatus) addChip(STATUS_LABELS[S.filterStatus] || S.filterStatus, () => { S.filterStatus = ""; renderSidePanel(); renderMain(); });
-  if (S.filterPinned) addChip("⭐ Favoritos", () => { S.filterPinned = false; renderMain(); });
   S.filterTags.forEach(t => addChip("#" + t, () => { S.filterTags = S.filterTags.filter(ft => ft !== t); renderSidePanel(); renderMain(); }));
   S.filterAis.forEach(ai => addChip("IA:" + ai.toUpperCase(), () => { S.filterAis = S.filterAis.filter(a => a !== ai); renderSidePanel(); renderMain(); }));
 
@@ -603,7 +474,6 @@ function renderMain() {
         else if (action === "copy") { e.stopPropagation(); copyPrompt(id); }
         else if (action === "edit") { e.stopPropagation(); openEditor(id); }
         else if (action === "dupe") { e.stopPropagation(); duplicatePrompt(id); }
-        else if (action === "more") { e.stopPropagation(); openDrawer(id); }
         else if (action === "archive") { e.stopPropagation(); toggleArchivePrompt(id); }
         else if (action === "pin") {
           e.stopPropagation();
@@ -633,23 +503,12 @@ function renderMain() {
       if (S.suppressNextCardClick) return;
       openDrawer(id);
     });
-    grid.addEventListener("keydown", e => {
-      const card = e.target.closest(".prompt-card");
-      if (!card) return;
-      const id = card.dataset.promptId;
-      if (!id) return;
-      if (e.key === "Enter" || e.key === " ") {
-        if (e.target.closest("[data-action]")) return;
-        e.preventDefault();
-        openDrawer(id);
-      }
-    });
   }
   // Pre-compute render context once per cycle (avoids per-card localStorage reads & regex creation)
   _renderCtx.hasRemote = typeof hasAnyRemoteConfigured !== "undefined" && hasAnyRemoteConfigured();
   _renderCtx.lastSync = _renderCtx.hasRemote ? (localStorage.getItem("bancoPrompts_lastSyncTime") || "0") : "0";
   _highlightRegexes = [];
-  const _renderQuery = `${S.search || ""} ${S.sideSearch || ""}`.trim();
+  const _renderQuery = (S.search || S.sideSearch).trim();
   if (_renderQuery) {
     _renderQuery.toLowerCase().split(/\s+/).filter(Boolean).forEach(w => {
       try {
@@ -670,7 +529,7 @@ function renderMain() {
     return;
   }
 
-  if (S.cat === "analise" && !S.subcat && S.promptSort !== "manual" && !S.search && !S.sideSearch && S.filterTags.length === 0 && !S.filterFormato && !S.filterStatus && !S.filterPinned && S.filterAis.length === 0) {
+  if (S.cat === "analise" && !S.subcat && S.promptSort !== "manual" && !S.search && !S.sideSearch && S.filterTags.length === 0 && !S.filterFormato && !S.filterStatus && S.filterAis.length === 0) {
     const grouped = {};
     ps.forEach(p => {
       const sc = p.subcategoria || "outros";
@@ -753,15 +612,12 @@ function buildCard(p) {
   const card = document.createElement("div");
   card.className = "prompt-card" + (S.promptSort === "manual" && !S.bulkSelectMode ? " manual-sort" : "") + (S.selectedPromptIds.includes(p.id) ? " selected" : "");
   card.dataset.promptId = p.id;
-  card.tabIndex = 0;
   const statusClass = "badge-" + (p.status || "teste");
   const statusLabel = STATUS_LABELS[p.status || "teste"] || p.status;
   const formatoLabel = FORMATO_LABELS[p.formato] || "";
-  const visibleTags = (p.tags || []).slice(0, 3);
-  const overflowTags = Math.max(0, (p.tags || []).length - visibleTags.length);
+  const visibleTags = (p.tags || []).slice(0, 4);
+  const cat = CATS.find(c => c.id === p.categoria);
   const subcat = SUBCATS.find(s => s.id === p.subcategoria);
-  const levelLabel = subcat?.name || "Sem nível";
-  const shortSummary = esc((p.quandoUsar || p.text || "").replace(/\s+/g, " ").trim()).slice(0, 140);
 
   let syncStatusHtml = "";
   if (_renderCtx.hasRemote && _renderCtx.lastSync !== "0") {
@@ -780,24 +636,24 @@ function buildCard(p) {
         ${S.bulkSelectMode ? `<input type="checkbox" class="card-select" data-action="select" ${S.selectedPromptIds.includes(p.id) ? "checked" : ""} aria-label="Selecionar prompt">` : `<span class="card-drag-handle" title="Arrastar card" draggable="true" data-action="drag-handle">⋮⋮</span>`}
         <div class="card-title">${cardTitle}</div>
       </div>
-      <div style="display:flex; gap:4px; align-items:center; flex-shrink:0;">
-        ${p.ai ? `<div class="card-ai-indicator" title="IA usada"><span aria-hidden="true">🤖</span><span>${esc(p.ai.toUpperCase())}</span></div>` : `<div class="card-ai-indicator is-empty">Sem IA</div>`}
+      <div style="display:flex; gap:4px; align-items:center;">
+        ${p.ai ? `<div class="card-ai">${esc(p.ai.toUpperCase())}</div>` : ""}
         <button class="card-pin-quick ${p.pinned ? 'is-pinned' : ''}" data-action="pin" title="Fixar prompt">${p.pinned ? '⭐' : '☆'}</button>
+        <button class="card-copy-quick" data-action="copy" title="Copiar prompt">📋</button>
       </div>
     </div>
-    ${shortSummary ? `<div class="card-summary">${shortSummary}</div>` : ""}
     <div class="card-badges">
-      <span class="badge ${statusClass} card-status">${esc(statusLabel)}</span>
+      <span class="badge ${statusClass}">${esc(statusLabel)}</span>
       ${formatoLabel ? `<span class="badge badge-formato">${esc(formatoLabel)}</span>` : ""}
-      <span class="badge badge-formato">${esc(levelLabel)}</span>
+      ${subcat ? `<span class="badge badge-formato">${esc(subcat.name)}</span>` : ""}
       ${syncStatusHtml}
     </div>
-    ${visibleTags.length ? `<div class="card-tags" data-action="tag-filter">${visibleTags.map(t => `<span class="tag" data-tag="${esc(t)}">#${esc(t)}</span>`).join("")}${overflowTags ? `<span class="tag tag-overflow" title="${overflowTags} tag(s) a mais">+${overflowTags}</span>` : ""}</div>` : ""}
+    ${p.quandoUsar ? `<div class="card-when" style="color:var(--t3);font-size:11.5px;">Quando usar: ${esc(p.quandoUsar)}</div>` : ""}
+    ${visibleTags.length ? `<div class="card-tags" data-action="tag-filter">${visibleTags.map(t => `<span class="tag" data-tag="${esc(t)}">#${esc(t)}</span>`).join("")}${(p.tags || []).length > 4 ? `<span class="tag">+${(p.tags || []).length - 4}</span>` : ""}</div>` : ""}
     <div class="card-actions">
       <button class="card-btn" data-action="edit">✏️ Editar</button>
       <button class="card-btn" data-action="dupe">🔁 Duplicar</button>
-      <button class="card-btn" data-action="copy">📋 Copiar</button>
-      <button class="card-btn" data-action="more">⋯ Mais</button>
+      <button class="card-btn" data-action="archive">${p.status === "arquivado" ? "📂 Desarquivar" : "🗃️ Arquivar"}</button>
     </div>`;
 
   if (S.promptSort === "manual" && !S.bulkSelectMode) {
@@ -1347,42 +1203,30 @@ function updateClearBtnVisibility() {
   $("#btnClearSideSearch")?.classList.toggle("visible", !!(ss && ss.value));
 }
 $("#globalSearch").addEventListener("input", e => {
-  S.search = e.target.value;
-  saveUIState();
+  S.search = e.target.value; S.sideSearch = "";
+  const side = $("#sideSearch"); if (side) side.value = "";
   updateClearBtnVisibility();
-  renderSidePanel();
   renderMainDebounced();
 });
 document.addEventListener("input", e => {
   if (e.target.id === "sideSearch") {
-    S.sideSearch = e.target.value;
-    saveUIState();
+    S.sideSearch = e.target.value; S.search = "";
+    const gs = $("#globalSearch"); if (gs) gs.value = "";
     updateClearBtnVisibility();
-    renderSidePanel();
     renderMainDebounced();
   }
 });
 
-$("#btnClearGlobalSearch").addEventListener("click", () => {
-  S.search = "";
-  $("#globalSearch").value = "";
-  saveUIState();
-  updateClearBtnVisibility();
-  renderSidePanel();
-  renderMain();
-});
+$("#btnClearGlobalSearch").addEventListener("click", () => { S.search = ""; $("#globalSearch").value = ""; updateClearBtnVisibility(); renderMain(); });
 
 document.addEventListener("click", e => {
   if (e.target.id === "btnClearSideSearch") {
     S.sideSearch = ""; const ss = $("#sideSearch"); if (ss) ss.value = "";
-    saveUIState();
-    updateClearBtnVisibility();
-    renderSidePanel();
-    renderMain();
+    updateClearBtnVisibility(); renderMain();
   }
 });
 $("#btnClearFilters").addEventListener("click", () => {
-  S.search = ""; S.sideSearch = ""; S.filterFormato = ""; S.filterStatus = ""; S.filterPinned = false; S.filterTags = []; S.filterAis = [];
+  S.search = ""; S.sideSearch = ""; S.filterFormato = ""; S.filterStatus = ""; S.filterTags = []; S.filterAis = [];
   $("#globalSearch").value = ""; const side = $("#sideSearch"); if (side) side.value = "";
   renderSidePanel(); renderMain();
 });
@@ -1524,59 +1368,8 @@ function refreshWordImportPreview() {
   $("#wordImportPreview").textContent = `${parsed.length} bloco(s) detectado(s) • ${withEixo} com eixo detectado automaticamente.`;
 }
 
-// ── Theme + Top controls ──
-function toggleThemeWithToast() {
-  const n = getTheme() === "light" ? "dark" : "light";
-  setTheme(n);
-  applyColor(currentColorIndex);
-  toast(n === "light" ? "Tema claro ☀️" : "Tema escuro 🌙");
-}
-
-function getRelativeTimeFromNow(iso) {
-  if (!iso || iso === "0") return "—";
-  const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return "—";
-  const diff = Date.now() - then;
-  if (diff < 45 * 1000) return "agora";
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `há ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `há ${hours} h`;
-  const days = Math.floor(hours / 24);
-  return `há ${days} d`;
-}
-
-function refreshSyncInlineStatus() {
-  const dot = $("#syncInlineDot");
-  const text = $("#syncInlineText");
-  const time = $("#syncInlineTime");
-  if (!dot || !text || !time) return;
-
-  const state = document.getElementById("btnDriveSync")?.dataset?.state || "off";
-  dot.dataset.state = state;
-
-  const stateMap = {
-    off: "Sync desativado",
-    idle: "Pronto para sincronizar",
-    syncing: "Sincronizando…",
-    ok: "Sincronizado",
-    error: "Erro na sincronização"
-  };
-  text.textContent = stateMap[state] || "Sincronização";
-
-  const lastSync = localStorage.getItem("bancoPrompts_lastSyncTime") || "0";
-  time.textContent = getRelativeTimeFromNow(lastSync);
-  time.title = lastSync !== "0" ? `Última sync: ${fmt(lastSync)}` : "Sem sincronização registrada";
-}
-
-$("#btnTheme").addEventListener("click", toggleThemeWithToast);
-$("#btnThemeTop")?.addEventListener("click", toggleThemeWithToast);
-$("#btnImportTop")?.addEventListener("click", () => $("#btnImport")?.click());
-$("#btnExportTop")?.addEventListener("click", () => $("#btnExport")?.click());
-$("#syncInlineStatus")?.addEventListener("click", () => document.getElementById("btnDriveSync")?.click());
-window.addEventListener("syncStateChanged", refreshSyncInlineStatus);
-setInterval(refreshSyncInlineStatus, 60 * 1000);
-refreshSyncInlineStatus();
+// ── Theme ──
+$("#btnTheme").addEventListener("click", () => { const n = getTheme() === "light" ? "dark" : "light"; setTheme(n); applyColor(currentColorIndex); toast(n === "light" ? "Tema claro ☀️" : "Tema escuro 🌙"); });
 
 // ── Settings / Data actions ──
 function dl(name, content, type = "application/json") {

@@ -3,10 +3,6 @@ loadCatOrder();
 loadManualOrder();
 loadSubcatOrder();
 loadUIState();
-const gs = document.getElementById("globalSearch");
-const ss = document.getElementById("sideSearch");
-if (gs) gs.value = S.search || "";
-if (ss) ss.value = S.sideSearch || "";
 
 // ── Global Error Boundaries ──
 window.addEventListener("error", (e) => {
